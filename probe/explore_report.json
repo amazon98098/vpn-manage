@@ -1,0 +1,195 @@
+{
+  "account": {
+    "id": 7355569488,
+    "username": "amazonshiraz",
+    "first_name": "Amazon98098"
+  },
+  "bots": [
+    {
+      "username": "@Bombejokerbot",
+      "id": 6173258091,
+      "title": "NetPlus",
+      "bot": true,
+      "recent_messages": [
+        {
+          "id": 16396,
+          "date": "2026-11-02T19:34:57+00:00",
+          "out": false,
+          "text": "⚠️ کاربر گرامی؛ شما عضو چنل ما نیستید\nاز طریق دکمه زیر وارد کانال شده و عضو شوید\nپس از عضویت دکمه بررسی عضویت را کلیک کنید",
+          "has_media": false,
+          "buttons": [
+            [
+              {
+                "text": "📢 عضویت در عضویت کانال",
+                "url": "https://t.me/bombev2rayNgjoker"
+              }
+            ],
+            [
+              {
+                "text": "✅ عضو شدم، بررسی کن",
+                "callback_data": "confirmchannel"
+              }
+            ]
+          ]
+        },
+        {
+          "id": 16395,
+          "date": "2026-11-02T19:34:57+00:00",
+          "out": true,
+          "text": "/start",
+          "has_media": false,
+          "buttons": []
+        }
+      ]
+    },
+    {
+      "username": "@FineArtsVPNBot",
+      "id": 6538732400,
+      "title": "💎FineArtsVPN🤖Bot",
+      "bot": true,
+      "recent_messages": [
+        {
+          "id": 16401,
+          "date": "2026-11-02T19:36:46+00:00",
+          "out": false,
+          "text": "⛔️ در حال حاضر هیچ سرویس فعالی ندارید.",
+          "has_media": false,
+          "buttons": []
+        },
+        {
+          "id": 16400,
+          "date": "2026-11-02T19:36:19+00:00",
+          "out": false,
+          "text": "سلام خوش آمدید🌹\n❗️هشدار: تبلیغات بالای بات👆 مربوط به تلگرامه نه ما و غالباَ هم کلاهبرداریست\n\nسرویس vpn مناسب انواع هوش ‌مصنوعی و سایتای تحریمی👇\nفاقد تضمین اتصال در شرایط جنگی❗️\n\nپشتیبانی 🤗 @FineArtSupport",
+          "has_media": false,
+          "buttons": [
+            [
+              {
+                "text": "🔐 خرید اشتراک",
+                "callback_data": "buy"
+              }
+            ],
+            [
+              {
+                "text": "🛍 سرویس‌های من (تمدید و...)",
+                "callback_data": "backorder"
+              }
+            ],
+            [
+              {
+                "text": "💰کیف پول",
+                "callback_data": "account"
+              }
+            ],
+            [
+              {
+                "text": "📚 آموزش",
+                "callback_data": "helpbtns"
+              }
+            ],
+            [
+              {
+                "text": "☎️ پشتیبانی",
+                "callback_data": "supportbtns"
+              }
+            ]
+          ]
+        },
+        {
+          "id": 16398,
+          "date": "2026-11-02T19:35:55+00:00",
+          "out": false,
+          "text": "✅ عضویت شما تایید شد!\n\nاز همراهی‌تان ممنونیم؛ حالا می‌توانید از همه امکانات ربات استفاده کنید. 🌟",
+          "has_media": false,
+          "buttons": []
+        },
+        {
+          "id": 15657,
+          "date": "2026-07-16T08:39:05+00:00",
+          "out": false,
+          "text": "دقت کنید حتما پس از پرداخت باید عکس رسید را برای بات درگاه واسط ارسال کنید\nبعد از واریز، اول شماره کارتی که از آن پرداخت کردید رو بفرستید براش، سپس عکس رسید رو",
+          "has_media": false,
+          "buttons": []
+        },
+        {
+          "id": 15656,
+          "date": "2026-07-16T08:39:05+00:00",
+          "out": false,
+          "text": "درحال ساخت لینک پرداخت...",
+          "has_media": false,
+          "buttons": [
+            [
+              {
+                "text": "🔐 خرید اشتراک",
+                "callback_data": "buy"
+              }
+            ],
+            [
+              {
+                "text": "🛍 سرویس‌های من (تمدید و...)",
+                "callback_data": "backorder"
+              }
+            ],
+            [
+              {
+                "text": "💰کیف پول",
+                "callback_data": "account"
+              }
+            ],
+            [
+              {
+                "text": "📚 آموزش",
+                "callback_data": "helpbtns"
+              }
+            ],
+            [
+              {
+                "text": "☎️ پشتیبانی",
+                "callback_data": "supportbtns"
+              }
+            ]
+          ]
+        },
+        {
+          "id": 15654,
+          "date": "2026-07-16T08:39:01+00:00",
+          "out": false,
+          "text": "⏳ در حال پردازش...",
+          "has_media": false,
+          "buttons": []
+        },
+        {
+          "id": 15653,
+          "date": "2026-07-16T08:39:01+00:00",
+          "out": true,
+          "text": "oqoweoqwoe",
+          "has_media": false,
+          "buttons": []
+        },
+        {
+          "id": 15652,
+          "date": "2026-07-16T08:38:55+00:00",
+          "out": false,
+          "text": "يک نام کاربري دلخواه ارسال کنيد\n⚠️ نام کاربری باید بدون کاراکترهای اضافه مانند @ ، فاصله ، خط تیره باشد. \n⚠️ نام کاربری باید انگلیسی باشد.\n✅ نام کاربری های صحیح  : ali12  | mahdi  | ws1_ksdf\n❌  نام کاربری های نادرست :   ali_ |  tele@  |  _mahdi | محسن",
+          "has_media": false,
+          "buttons": [
+            [
+              {
+                "text": "🏠 بازگشت به منوی قبل",
+                "callback_data": "back_product"
+              }
+            ]
+          ]
+        },
+        {
+          "id": 15650,
+          "date": "2026-07-16T08:38:49+00:00",
+          "out": true,
+          "text": "/start",
+          "has_media": false,
+          "buttons": []
+        }
+      ]
+    }
+  ]
+}

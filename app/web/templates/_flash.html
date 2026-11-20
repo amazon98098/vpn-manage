@@ -1,0 +1,14 @@
+{% macro render(message, err=false) %}
+{% if message %}
+<div class="flash{% if err %} err{% endif %}">
+  <div class="flash-body">{{ message }}</div>
+  {% if flash_actions %}
+  <div class="actions">
+    {% for act in flash_actions %}
+    <a class="btn ghost small" href="{{ act.href }}">{{ act.label }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}

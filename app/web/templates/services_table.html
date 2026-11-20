@@ -1,0 +1,84 @@
+<div data-live-meta="{{ t('matching_page', total=total, page=page + 1, pages=pages) }}"></div>
+<table>
+  <thead>
+    <tr>
+      <th><input type="checkbox" data-select-all title="Select page" /></th>
+      <th data-act="renew">{{ t('col_actions') }}</th>
+      <th data-col="username"><a class="sort" href="/services?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}&sort=username&direction={% if sort == 'username' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_username') }}{% if sort == 'username' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+      <th data-col="vendor">{{ t('col_vendor') }}</th>
+      <th data-col="product"><a class="sort" href="/services?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}&sort=product&direction={% if sort == 'product' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_product') }}{% if sort == 'product' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+      <th data-col="status"><a class="sort" href="/services?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}&sort=status&direction={% if sort == 'status' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_status') }}{% if sort == 'status' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+      <th data-col="remain"><a class="sort" href="/services?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}&sort=remain&direction={% if sort == 'remain' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_remain') }}{% if sort == 'remain' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+      <th data-col="used"><a class="sort" href="/services?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}&sort=used&direction={% if sort == 'used' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_used') }}{% if sort == 'used' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+      <th data-col="limit"><a class="sort" href="/services?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}&sort=limit&direction={% if sort == 'limit' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_limit') }}{% if sort == 'limit' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+      <th data-col="expire"><a class="sort" href="/services?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}&sort=expire&direction={% if sort == 'expire' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_remain_days') }}{% if sort == 'expire' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+      <th data-col="owner">{{ t('col_owner') }}</th>
+      <th data-col="created"><a class="sort" href="/services?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}&sort=created&direction={% if sort == 'created' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_created') }}{% if sort == 'created' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+      <th data-col="link">{{ t('col_link') }}</th>
+      <th data-col="vsid">{{ t('col_vsid') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for it in items %}
+    <tr>
+      <td><input class="row-pick" type="checkbox" value="{{ it.sub.id }}" /></td>
+      <td class="row-actions actions-first" data-act="renew">
+        <a class="btn small" href="/services/{{ it.sub.id }}/renew" title="{{ t('renew_service') }}">{{ t('btn_renew') }}</a>
+      </td>
+      <td data-col="username" class="mono">
+        <span class="plan-mark" title="Plan type">{{ it.plan_icon }}</span>
+        <button type="button" class="copy-cell" data-copy="{{ it.sub.username }}" title="{{ t('copy_username') }}">{{ it.sub.username }}</button>
+        <span class="plan-mark" title="Plan type">{{ it.plan_icon }}</span>
+      </td>
+      <td data-col="vendor">
+        <span class="chip vendor-chip" title="{{ it.vendor_name }}">
+          <span>{{ it.plan_icon }}</span>
+          <span>{{ it.vendor_icon }}</span>
+          <span>{{ it.vendor_key }}</span>
+        </span>
+      </td>
+      <td data-col="product">{{ it.plan_icon }} {{ it.sub.product_name or '—' }}</td>
+      <td data-col="status"><span class="chip {% if it.sub.status == 'active' %}ok{% elif it.sub.status in ['warning','volume_exhausted'] %}warn{% else %}bad{% endif %}">{{ it.status_icon }} {{ it.sub.status }}</span></td>
+      <td data-col="remain" class="mono">{{ it.sub.remaining_traffic_mb | traffic }}</td>
+      <td data-col="used" class="mono">{{ it.sub.used_traffic_mb | traffic }}</td>
+      <td data-col="limit" class="mono">{{ it.sub.traffic_limit_mb | traffic }}</td>
+      <td data-col="expire" class="mono">{{ it.sub.expiration_date | remain_days }}</td>
+      <td data-col="owner" class="mono">{% if it.owner %}<button type="button" class="copy-cell" data-copy="{{ it.owner }}" title="{{ t('copy_id') }}">{{ it.owner }}</button>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td data-col="created" class="mono muted">{{ it.sub.created_at.strftime('%Y-%m-%d %H:%M') if it.sub.created_at else '—' }}</td>
+      <td data-col="link">
+        {% if it.has_url %}
+        <button type="button" class="btn ghost small" data-copy="{{ it.url }}" title="{{ t('copy') }}">{{ t('copy') }}</button>
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+      <td data-col="vsid" class="mono muted">{% if it.sub.vendor_service_id %}<button type="button" class="copy-cell muted" data-copy="{{ it.sub.vendor_service_id }}" title="{{ t('copy_id') }}">{{ it.sub.vendor_service_id }}</button>{% else %}—{% endif %}</td>
+      <td class="row-actions">
+        <a class="btn ghost small" data-act="open" href="/services/{{ it.sub.id }}">{{ t('open') }}</a>
+        {% if it.has_url %}
+        <button type="button" class="btn ghost small" data-act="copy_link" data-copy="{{ it.url }}">🔗</button>
+        {% endif %}
+        {% if it.has_url %}
+        <form method="post" action="/services/{{ it.sub.id }}/refresh-url" style="display:inline" data-act="refresh_url">
+          <button class="btn ghost small" type="submit" title="{{ t('refresh_url') }}">🔄</button>
+        </form>
+        {% endif %}
+        <form method="post" action="/services/{{ it.sub.id }}/refresh-vendor" style="display:inline" data-act="refresh_vendor">
+          <button class="btn ghost small" type="submit" title="{{ t('refresh_vendor') }}">🏪</button>
+        </form>
+        <form method="post" action="/services/{{ it.sub.id }}/unlink" style="display:inline" data-act="unlink" onsubmit="return confirm({{ t('unlink_confirm')|tojson }});">
+          <button class="btn ghost small" type="submit">{{ t('unlink') }}</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="15" class="muted">{{ t('no_services') }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="pager">
+  {% if page > 0 %}<a class="btn ghost small" href="/services?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}&sort={{ sort }}&direction={{ direction }}&page={{ page - 1 }}">{{ t('prev') }}</a>{% endif %}
+  <span class="muted">{{ t('page_of', page=page + 1, pages=pages) }}</span>
+  {% if page + 1 < pages %}<a class="btn ghost small" href="/services?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}&sort={{ sort }}&direction={{ direction }}&page={{ page + 1 }}">{{ t('next') }}</a>{% endif %}
+</div>

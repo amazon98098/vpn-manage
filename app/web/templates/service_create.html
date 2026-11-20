@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ t('create_service_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('create_service_title') }}</h1>
+    <p>{{ t('create_service_lead') }}</p>
+  </div>
+  <div class="top-actions">
+    <a class="btn ghost" href="/services">{{ t('back') }}</a>
+  </div>
+</div>
+{% if err == 'username' or err == 'invalid' %}<div class="flash err">{{ t('create_err_username') }}</div>
+{% elif err == 'plan' %}<div class="flash err">{{ t('create_err_plan') }}</div>
+{% elif err == 'owner' %}<div class="flash err">{{ t('create_err_owner') }}</div>
+{% elif err == 'taken_sub' or err == 'taken_other' %}<div class="flash err">{{ t('create_err_taken') }}</div>
+{% elif err == 'open_order' %}<div class="flash err">{{ t('create_err_open_order') }}</div>
+{% elif err == 'busy' %}<div class="flash err">{{ t('create_err_busy') }}</div>
+{% elif err %}<div class="flash err">{{ t('create_failed') }}</div>{% endif %}
+<section class="panel panel-narrow">
+  <form class="form-stack" method="post" action="/services/create">
+    <label>{{ t('new_username') }}
+      <input name="username" required minlength="3" maxlength="32" dir="ltr" autocomplete="off" placeholder="user_name" />
+    </label>
+    <label>{{ t('owner_tg') }}
+      <input name="owner_tg" dir="ltr" inputmode="numeric" autocomplete="off" placeholder="{{ t('owner_tg_ph') }}" />
+    </label>
+    <p class="muted small">{{ t('create_owner_note') }}</p>
+    <div>
+      <div class="muted small" style="margin-bottom:0.5rem">{{ t('create_plan') }}</div>
+      {% if plans %}
+      <div class="plan-pick">
+        {% for p in plans %}
+        <label class="plan-card">
+          <input type="radio" name="plan_id" value="{{ p.id }}" required {% if loop.first %}checked{% endif %} />
+          <span class="plan-card-body">
+            <span class="plan-card-title">{{ p.plan_icon }} {{ p.vendor_icon }} {{ p.title }}</span>
+            <span class="plan-card-meta muted">
+              {% if p.traffic_gb %}{{ p.traffic_gb|int }} GB{% endif %}
+              {% if p.duration_days and p.duration_days > 0 %} · {{ p.duration_days }}d{% elif not p.duration_days or p.duration_days <= 0 %} · ∞{% endif %}
+              · {{ p.vendor_key }}
+            </span>
+            <span class="plan-card-price mono num-cell">{{ p.price_toman | toman }}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="flash err">{{ t('no_enabled_plans') }}</p>
+      {% endif %}
+    </div>
+    <p class="muted small">{{ t('create_queue_note') }}</p>
+    <button class="btn" type="submit" {% if not plans %}disabled{% endif %}>{{ t('queue_create') }}</button>
+  </form>
+</section>
+{% endblock %}

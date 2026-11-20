@@ -1,0 +1,271 @@
+{
+  "started_at": "2026-11-04T19:00:14.029537+00:00",
+  "dest": "7355569488",
+  "already_done": [
+    {
+      "username": "516_azizi",
+      "result": "OK"
+    }
+  ],
+  "targets": [
+    "559_zahra_zare",
+    "080_dinakani",
+    "700_fatemeh_ebrahimi",
+    "517_mohammad_roshan"
+  ],
+  "transfers": [
+    {
+      "username": "559_zahra_zare",
+      "events": [
+        {
+          "step": "list_or_search",
+          "message": {
+            "id": 84690,
+            "date": "2026-11-04T19:00:36+00:00",
+            "text": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : 559_zahra_zare\n\n\n🌍 موقعیت سرویس :نت پلاس 2🔥\n🗂 نام محصول :25 گیگ کاربر نامحدود یکماهه🔸 70 هزار تومن\n\n\n🔋 ترافیک : 25 گیگابایت\n📥 حجم مصرفی : 19.03 گیگابایت\n💢 حجم باقی مانده : 5.97 گیگابایت (23.89%)\n\n📅 تاریخ اتمام : ۱۴۰۵/۰۹/۰۵ (21 روز 20 ساعت 45دقیقه دیگر)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۱۳ ۲۱:۵۸:۳۲\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۱۳ ۲۱:۵۹:۲۷\n#️⃣ کلاینت متصل شده :Streisand/50 CFNetwork/3860.600.12 Darwin/25.5.0\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+            "buttons": [
+              [
+                {
+                  "text": "♻️ بروزرسانی اطلاعات",
+                  "callback_data": "updateproduct_e886f172"
+                }
+              ],
+              [
+                {
+                  "text": "🔗 لینک اشتراک",
+                  "callback_data": "subscriptionurl_e886f172"
+                },
+                {
+                  "text": "🔰 دریافت کانفیگ",
+                  "callback_data": "config_e886f172"
+                }
+              ],
+              [
+                {
+                  "text": "⚙️ تغییر لینک",
+                  "callback_data": "changelink_e886f172"
+                },
+                {
+                  "text": "💊 تمدید سرویس",
+                  "callback_data": "extend_e886f172"
+                }
+              ],
+              [
+                {
+                  "text": "❌ خاموش کردن اکانت",
+                  "callback_data": "changestatus_e886f172"
+                },
+                {
+                  "text": "🚚 انتقال سرویس به کاربر دیگر",
+                  "callback_data": "transfer_e886f172"
+                }
+              ],
+              [
+                {
+                  "text": "🏠 بازگشت به لیست سرویس ها",
+                  "callback_data": "backorder"
+                }
+              ]
+            ]
+          }
+        },
+        {
+          "step": "status",
+          "product": null,
+          "message": null
+        }
+      ],
+      "result": "FAIL_OPEN"
+    },
+    {
+      "username": "080_dinakani",
+      "events": [
+        {
+          "step": "list_or_search",
+          "message": {
+            "id": 84697,
+            "date": "2026-11-04T19:01:13+00:00",
+            "text": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : 080_dinakani\n\n\n🌍 موقعیت سرویس :نت پلاس 2🔥\n🗂 نام محصول :25 گیگ کاربر نامحدود یکماهه🔸 70 هزار تومن\n\n\n🔋 ترافیک : 25 گیگابایت\n📥 حجم مصرفی : مصرف نشده\n💢 حجم باقی مانده : 25 گیگابایت (100%)\n\n📅 تاریخ اتمام : ۱۴۰۵/۰۹/۰۳ (19 روز 13 ساعت 43دقیقه دیگر)\n\n\n📶 اخرین زمان اتصال  : متصل نشده\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۰۳ ۱۸:۵۰:۳۴\n#️⃣ کلاینت متصل شده :v2rayNG/2.2.6\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+            "buttons": [
+              [
+                {
+                  "text": "♻️ بروزرسانی اطلاعات",
+                  "callback_data": "updateproduct_c65d53ec"
+                }
+              ],
+              [
+                {
+                  "text": "🔗 لینک اشتراک",
+                  "callback_data": "subscriptionurl_c65d53ec"
+                },
+                {
+                  "text": "🔰 دریافت کانفیگ",
+                  "callback_data": "config_c65d53ec"
+                }
+              ],
+              [
+                {
+                  "text": "⚙️ تغییر لینک",
+                  "callback_data": "changelink_c65d53ec"
+                },
+                {
+                  "text": "💊 تمدید سرویس",
+                  "callback_data": "extend_c65d53ec"
+                }
+              ],
+              [
+                {
+                  "text": "❌ خاموش کردن اکانت",
+                  "callback_data": "changestatus_c65d53ec"
+                },
+                {
+                  "text": "🚚 انتقال سرویس به کاربر دیگر",
+                  "callback_data": "transfer_c65d53ec"
+                }
+              ],
+              [
+                {
+                  "text": "🏠 بازگشت به لیست سرویس ها",
+                  "callback_data": "backorder"
+                }
+              ]
+            ]
+          }
+        },
+        {
+          "step": "status",
+          "product": null,
+          "message": null
+        }
+      ],
+      "result": "FAIL_OPEN"
+    },
+    {
+      "username": "700_fatemeh_ebrahimi",
+      "events": [
+        {
+          "step": "list_or_search",
+          "message": {
+            "id": 84704,
+            "date": "2026-11-04T19:01:49+00:00",
+            "text": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : 700_fatemeh_ebrahimi\n\n\n🌍 موقعیت سرویس :نت پلاس 2🔥\n🗂 نام محصول :25 گیگ کاربر نامحدود یکماهه🔸 70 هزار تومن\n\n\n🔋 ترافیک : 25 گیگابایت\n📥 حجم مصرفی : 314.96 مگابایت\n💢 حجم باقی مانده : 24.69 گیگابایت (98.77%)\n\n📅 تاریخ اتمام : ۱۴۰۵/۰۸/۳۰ (16 روز 19 ساعت 13دقیقه دیگر)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۰۱ ۱۲:۴۸:۰۸\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۷/۳۰ ۱۷:۴۸:۵۲\n#️⃣ کلاینت متصل شده :v2rayN/7.17.0\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+            "buttons": [
+              [
+                {
+                  "text": "♻️ بروزرسانی اطلاعات",
+                  "callback_data": "updateproduct_80f9100f"
+                }
+              ],
+              [
+                {
+                  "text": "🔗 لینک اشتراک",
+                  "callback_data": "subscriptionurl_80f9100f"
+                },
+                {
+                  "text": "🔰 دریافت کانفیگ",
+                  "callback_data": "config_80f9100f"
+                }
+              ],
+              [
+                {
+                  "text": "⚙️ تغییر لینک",
+                  "callback_data": "changelink_80f9100f"
+                },
+                {
+                  "text": "💊 تمدید سرویس",
+                  "callback_data": "extend_80f9100f"
+                }
+              ],
+              [
+                {
+                  "text": "❌ خاموش کردن اکانت",
+                  "callback_data": "changestatus_80f9100f"
+                },
+                {
+                  "text": "🚚 انتقال سرویس به کاربر دیگر",
+                  "callback_data": "transfer_80f9100f"
+                }
+              ],
+              [
+                {
+                  "text": "🏠 بازگشت به لیست سرویس ها",
+                  "callback_data": "backorder"
+                }
+              ]
+            ]
+          }
+        },
+        {
+          "step": "status",
+          "product": null,
+          "message": null
+        }
+      ],
+      "result": "FAIL_OPEN"
+    },
+    {
+      "username": "517_mohammad_roshan",
+      "events": [
+        {
+          "step": "list_or_search",
+          "message": {
+            "id": 84711,
+            "date": "2026-11-04T19:02:25+00:00",
+            "text": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : 517_mohammad_roshan\n\n\n🌍 موقعیت سرویس :نت پلاس 🔥\n🗂 نام محصول :55 گیگ کاربرنامحدود یکماهه🔸 105 هزار تومن\n\n\n🔋 ترافیک : 110 گیگابایت\n📥 حجم مصرفی : 64.04 گیگابایت\n💢 حجم باقی مانده : 45.96 گیگابایت (41.78%)\n\n📅 تاریخ اتمام : ۱۴۰۵/۰۹/۱۱ (27 روز 2 ساعت 3دقیقه دیگر)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۱۳ ۲۲:۳۱:۵۹\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۱۳ ۱۱:۱۶:۰۳\n#️⃣ کلاینت متصل شده :v2rayNG/1.10.23\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+            "buttons": [
+              [
+                {
+                  "text": "♻️ بروزرسانی اطلاعات",
+                  "callback_data": "updateproduct_02269037"
+                }
+              ],
+              [
+                {
+                  "text": "🔗 لینک اشتراک",
+                  "callback_data": "subscriptionurl_02269037"
+                },
+                {
+                  "text": "🔰 دریافت کانفیگ",
+                  "callback_data": "config_02269037"
+                }
+              ],
+              [
+                {
+                  "text": "⚙️ تغییر لینک",
+                  "callback_data": "changelink_02269037"
+                },
+                {
+                  "text": "💊 تمدید سرویس",
+                  "callback_data": "extend_02269037"
+                }
+              ],
+              [
+                {
+                  "text": "❌ خاموش کردن اکانت",
+                  "callback_data": "changestatus_02269037"
+                },
+                {
+                  "text": "🚚 انتقال سرویس به کاربر دیگر",
+                  "callback_data": "transfer_02269037"
+                }
+              ],
+              [
+                {
+                  "text": "🏠 بازگشت به لیست سرویس ها",
+                  "callback_data": "backorder"
+                }
+              ]
+            ]
+          }
+        },
+        {
+          "step": "status",
+          "product": null,
+          "message": null
+        }
+      ],
+      "result": "FAIL_OPEN"
+    }
+  ],
+  "ok_total_including_first": 1
+}

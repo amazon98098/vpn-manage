@@ -1,0 +1,21 @@
+2026-11-12 23:17:39,350 INFO timed_renew: DB sub id=89 vendor_service_id=0c684cb9 expire=2026-12-03 10:33:35
+2026-11-12 23:17:39,351 INFO telethon.network.mtprotosender: Connecting to 149.154.167.91:443/TcpFull...
+2026-11-12 23:17:39,352 INFO telethon.network.mtprotosender: Connection to 149.154.167.91:443/TcpFull complete!
+2026-11-12 23:17:40,744 INFO app.telegram.user_client: User client ready as fxoneplus (9206910824)
+2026-11-12 23:17:41,518 INFO app.vendors.netplus_driver: STEP send '/services' -> 0.44s
+2026-11-12 23:18:07,243 INFO app.vendors.netplus_driver: STEP click searchservice (wait fallback) -> 25.56s
+2026-11-12 23:18:08,182 INFO app.vendors.netplus_driver: STEP send '302_naseri' -> 0.79s
+2026-11-12 23:18:08,182 INFO app.vendors.netplus_driver: TIMING open_status 302_naseri direct total=27.44s steps=[('send_/services', 0.7737094739995882), ('click_searchservice', 25.724387813999783), ('type_username', 0.9392896340004881)]
+2026-11-12 23:18:29,667 INFO app.vendors.netplus_driver: STEP click extend_0c684cb9 (edit fallback) -> 21.32s
+2026-11-12 23:18:51,186 INFO app.vendors.netplus_driver: STEP click exntedagei (edit fallback) -> 21.35s
+2026-11-12 23:19:12,923 INFO app.vendors.netplus_driver: STEP click confirmserivce (edit fallback) -> 21.36s
+2026-11-12 23:19:12,923 INFO app.vendors.netplus_driver: TIMING walk step=0 click_confirm=confirmserivce 21.54s
+2026-11-12 23:19:13,238 INFO app.vendors.netplus_driver: TIMING walk step=1 card_branch
+2026-11-12 23:19:13,238 INFO app.vendors.netplus_driver: Clicking card-to-card (cart_to_offline)
+2026-11-12 23:19:38,932 INFO app.vendors.netplus_driver: STEP click cart_to_offline (wait fallback) -> 25.54s
+2026-11-12 23:19:39,137 INFO app.vendors.netplus_driver: TIMING card_path click=25.69s wait_payment=0.20s total=25.90s ok=True
+2026-11-12 23:19:39,137 INFO app.vendors.netplus_driver: TIMING walk done step=1 total=47.95s ok=True
+2026-11-12 23:19:39,137 INFO app.vendors.netplus_driver: TIMING drive_renew 302_naseri total=118.39s ok=True stage=payment steps=[('open_status', 27.437693809999473), ('click_extend', 21.485070800000358), ('click_current_plan', 21.518873426000027), ('walk_to_payment', 47.9509721860004)]
+2026-11-12 23:19:39,137 INFO timed_renew: DONE {"username": "302_naseri", "service_id": "0c684cb9", "ok": true, "stage": "payment", "error": null, "total_seconds": 118.39, "payment": {"amount_rial": "1039680", "card": "5041721256102998", "holder": "زرگل پور حسین", "message_id": 2466, "text_preview": "⚠️ مبلغ را دقیق و تا رقم آخر واریز کنید؛ رند نکنید.\n\n🛑 فقط کارت‌به‌کارت کنید؛ از «پل» واریز نکنید.\n\n💰 مبلغ: 1039680 ریال\n\n💳 شماره کارت: 5041721256102998\n\n👤 به نام: زرگل پور حسین\n\n👆 برای کپی، روی مبلغ یا شماره کارت بزنید.\n\n✅ با واریز مبلغ دقیق، پرداخت شما لحظه‌ای و خودکار تأیید می‌شود؛ نیازی به ارسال رسید نیست.\n\n🔴 اگر مبلغ را رند واریز کردید، تأیید دستی زمان می‌برد. نیازی به واریز مابه‌التفاوت نیست"}}
+2026-11-12 23:19:39,137 INFO telethon.network.mtprotosender: Disconnecting from 149.154.167.91:443/TcpFull...
+2026-11-12 23:19:39,138 INFO telethon.network.mtprotosender: Disconnection from 149.154.167.91:443/TcpFull complete!

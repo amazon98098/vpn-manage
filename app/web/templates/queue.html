@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ t('queue_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('queue_title') }}</h1>
+    <p>{{ t('queue_lead') }}</p>
+  </div>
+  <form method="post" action="/queue/clear" onsubmit="return confirm({{ t('clear_queue_confirm')|tojson }});">
+    <button class="btn danger" type="submit">{{ t('clear_queue') }}</button>
+  </form>
+</div>
+{% if flash %}<div class="flash">{{ t('queue_updated', flash=flash) }}</div>{% endif %}
+<section class="panel">
+  <div class="toolbar"><strong>{{ t('active') }}</strong></div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-col-picker data-storage-key="fx_queue_cols" data-col-root="#queue-active">
+      <span class="muted">{{ t('columns') }}</span>
+      <label class="chip"><input type="checkbox" value="id" checked /> 🆔</label>
+      <label class="chip"><input type="checkbox" value="kind" checked /> {{ t('kind') }}</label>
+      <label class="chip"><input type="checkbox" value="user" checked /> {{ t('user') }}</label>
+      <label class="chip"><input type="checkbox" value="status" checked /> {{ t('status') }}</label>
+      <label class="chip"><input type="checkbox" value="amount" checked /> {{ t('amount') }}</label>
+      <label class="chip"><input type="checkbox" value="card" checked /> {{ t('card') }}</label>
+    </div>
+  </div>
+  <div class="toolbar tools-bar">
+    <form method="post" action="/queue/bulk" data-bulk class="bulk-form">
+      <input type="hidden" name="ids" value="" />
+      <input type="hidden" name="action" value="cancel" />
+      <button class="btn ghost small" type="submit">{{ t('cancel_selected') }}</button>
+    </form>
+  </div>
+  <div id="queue-active">
+  <table>
+    <thead>
+      <tr>
+        <th><input type="checkbox" data-select-all /></th>
+        <th data-col="id">🆔</th>
+        <th data-col="kind">{{ t('kind') }}</th>
+        <th data-col="user">{{ t('user') }}</th>
+        <th data-col="status">📡 {{ t('status') }}</th>
+        <th data-col="amount">{{ t('amount') }}</th>
+        <th data-col="card">{{ t('card') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in active_jobs %}
+      <tr>
+        <td><input class="row-pick" type="checkbox" value="{{ j.id }}" /></td>
+        <td class="mono" data-col="id"><button type="button" class="copy-cell" data-copy="{{ j.id }}" title="{{ t('copy_id') }}">{{ j.id }}</button></td>
+        <td data-col="kind">{{ j.kind }}</td>
+        <td class="mono" data-col="user">{% if j.username %}<button type="button" class="copy-cell" data-copy="{{ j.username }}" title="{{ t('copy_username') }}">{{ j.username }}</button>{% else %}—{% endif %}</td>
+        <td data-col="status"><span class="chip warn">{{ j.status }}</span></td>
+        <td class="mono num-cell" data-col="amount">{% if j.amount_rial %}{{ j.amount_rial | rial }}{% else %}—{% endif %}</td>
+        <td class="mono" data-col="card">{{ j.card_number or '—' }}</td>
+        <td>
+          <form method="post" action="/queue/{{ j.id }}/cancel">
+            <button class="btn ghost small" type="submit">{{ t('cancel') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="muted">{{ t('queue_idle') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+<section class="panel stack-gap">
+  <div class="toolbar"><strong>{{ t('recent_terminal') }}</strong></div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-col-picker data-storage-key="fx_queue_recent_cols" data-col-root="#queue-recent">
+      <span class="muted">{{ t('columns') }}</span>
+      <label class="chip"><input type="checkbox" value="id" checked /> 🆔</label>
+      <label class="chip"><input type="checkbox" value="kind" checked /> {{ t('kind') }}</label>
+      <label class="chip"><input type="checkbox" value="user" checked /> {{ t('user') }}</label>
+      <label class="chip"><input type="checkbox" value="status" checked /> {{ t('status') }}</label>
+      <label class="chip"><input type="checkbox" value="error" checked /> {{ t('error') }}</label>
+    </div>
+  </div>
+  <div id="queue-recent">
+  <table>
+    <thead><tr>
+      <th data-col="id">🆔</th>
+      <th data-col="kind">{{ t('kind') }}</th>
+      <th data-col="user">{{ t('user') }}</th>
+      <th data-col="status">📡 {{ t('status') }}</th>
+      <th data-col="error">{{ t('error') }}</th>
+    </tr></thead>
+    <tbody>
+      {% for j in recent_jobs %}
+      <tr>
+        <td class="mono" data-col="id"><button type="button" class="copy-cell" data-copy="{{ j.id }}" title="{{ t('copy_id') }}">{{ j.id }}</button></td>
+        <td data-col="kind">{{ j.kind }}</td>
+        <td class="mono" data-col="user">{% if j.username %}<button type="button" class="copy-cell" data-copy="{{ j.username }}" title="{{ t('copy_username') }}">{{ j.username }}</button>{% else %}—{% endif %}</td>
+        <td data-col="status"><span class="chip {% if j.status == 'completed' %}ok{% else %}bad{% endif %}">{{ j.status }}</span></td>
+        <td class="muted" data-col="error">{{ (j.error or '—')[:80] }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">{{ t('none') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

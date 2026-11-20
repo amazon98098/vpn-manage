@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FX One · Font picker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&family=DM+Serif+Display&family=Figtree:wght@400;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,650&family=IBM+Plex+Sans:wght@400;600&family=Instrument+Serif:ital@0;1&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Outfit:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;600;700&family=Sora:wght@400;500;600;700&family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@400;600;700&family=Syne:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #07110f;
+      --panel: rgba(13, 26, 23, 0.9);
+      --ink: #e8f2ee;
+      --muted: #8aa399;
+      --line: rgba(200, 245, 66, 0.14);
+      --accent: #c8f542;
+      --accent-2: #3dffa8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Sora, system-ui, sans-serif;
+      background:
+        radial-gradient(1000px 500px at 10% -10%, rgba(61, 255, 168, 0.14), transparent 55%),
+        radial-gradient(800px 420px at 90% 0%, rgba(200, 245, 66, 0.1), transparent 50%),
+        linear-gradient(160deg, #07110f, #0d1a17 45%, #0a1613);
+      padding: 1.5rem;
+    }
+    h1 {
+      margin: 0 0 0.35rem;
+      font-family: Fraunces, Georgia, serif;
+      font-weight: 650;
+      letter-spacing: -0.03em;
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+    }
+    .lead { color: var(--muted); margin: 0 0 1.25rem; max-width: 52rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 1.15rem 1.2rem 1.25rem;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .card:hover { transform: translateY(-2px); border-color: rgba(200,245,66,0.35); }
+    .card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(200,245,66,0.35), 0 18px 50px rgba(0,0,0,0.28);
+    }
+    .tag {
+      display: inline-flex;
+      gap: 0.35rem;
+      align-items: center;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.7rem;
+    }
+    .tag .dot {
+      width: 0.45rem; height: 0.45rem; border-radius: 50%;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    }
+    .display {
+      margin: 0 0 0.45rem;
+      font-size: 1.85rem;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+    .body {
+      margin: 0;
+      font-size: 0.95rem;
+      line-height: 1.55;
+      color: #d5e6df;
+    }
+    .meta {
+      margin-top: 0.85rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .bar {
+      position: sticky;
+      top: 0.6rem;
+      z-index: 5;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.1rem;
+      padding: 0.85rem 1rem;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(7, 17, 15, 0.85);
+      backdrop-filter: blur(12px);
+    }
+    .choice { color: var(--accent); font-weight: 600; }
+    .hint { color: var(--muted); font-size: 0.85rem; }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 0.55rem 0.95rem;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      color: #08120f;
+    }
+    button.ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <div>
+      <div class="hint">Click a card to select a pairing</div>
+      <div class="choice" id="choice">Current: Fraunces + Sora</div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="ghost" type="button" id="copy">Copy names</button>
+      <button type="button" id="tell">I’ll tell the agent this one</button>
+    </div>
+  </div>
+
+  <h1>Font samples</h1>
+  <p class="lead">
+    Each card is a display + body pairing for the admin panel. Pick the look you like,
+    then reply with the pair number or names (example: “use 4” or “Syne + Manrope”).
+  </p>
+
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const pairs = [
+      { n: 1, name: "Fraunces + Sora", display: "Fraunces", body: "Sora", note: "Current panel fonts" },
+      { n: 2, name: "Instrument Serif + DM Sans", display: "Instrument Serif", body: "DM Sans", note: "Editorial, soft contrast" },
+      { n: 3, name: "DM Serif Display + Figtree", display: "DM Serif Display", body: "Figtree", note: "Classic headline, clean UI" },
+      { n: 4, name: "Newsreader + Source Sans 3", display: "Newsreader", body: "Source Sans 3", note: "Readable, calm ops feel" },
+      { n: 5, name: "Libre Baskerville + IBM Plex Sans", display: "Libre Baskerville", body: "IBM Plex Sans", note: "Serious / utility" },
+      { n: 6, name: "Syne + Manrope", display: "Syne", body: "Manrope", note: "Bold brand, modern body" },
+      { n: 7, name: "Bricolage Grotesque + Plus Jakarta Sans", display: "Bricolage Grotesque", body: "Plus Jakarta Sans", note: "Friendly product UI" },
+      { n: 8, name: "Space Grotesk + Outfit", display: "Space Grotesk", body: "Outfit", note: "Tech / geometric" },
+      { n: 9, name: "Outfit + Figtree", display: "Outfit", body: "Figtree", note: "All-sans, soft rounded" },
+      { n: 10, name: "Syne + Sora", display: "Syne", body: "Sora", note: "Keep Sora body, stronger titles" },
+      { n: 11, name: "Fraunces + Manrope", display: "Fraunces", body: "Manrope", note: "Keep Fraunces titles, denser body" },
+      { n: 12, name: "Instrument Serif + Sora", display: "Instrument Serif", body: "Sora", note: "Keep Sora body, lighter display" },
+    ];
+
+    const grid = document.getElementById("grid");
+    const choice = document.getElementById("choice");
+    let selected = pairs[0];
+
+    function render() {
+      grid.innerHTML = "";
+      pairs.forEach(function (p) {
+        const card = document.createElement("article");
+        card.className = "card" + (selected.n === p.n ? " selected" : "");
+        card.innerHTML =
+          '<div class="tag"><span class="dot"></span> Pair ' + p.n + " · " + p.note + "</div>" +
+          '<h2 class="display" style="font-family:\'' + p.display + "', serif\">FX One Services</h2>" +
+          '<p class="body" style="font-family:\'' + p.body + "', sans-serif\">" +
+            "✨ Economy · 💎 Unlimited volume · Live inventory, owners, and subscription links at a glance. " +
+            "The quick brown fox jumps over the lazy dog — 0123456789." +
+          "</p>" +
+          '<div class="meta">' + p.name + "</div>";
+        card.addEventListener("click", function () {
+          selected = p;
+          choice.textContent = "Selected: #" + p.n + " · " + p.name;
+          render();
+        });
+        grid.appendChild(card);
+      });
+    }
+
+    document.getElementById("copy").addEventListener("click", async function () {
+      const text = "#" + selected.n + " " + selected.name;
+      try { await navigator.clipboard.writeText(text); } catch (e) {}
+      choice.textContent = "Copied: " + text;
+    });
+
+    document.getElementById("tell").addEventListener("click", function () {
+      choice.textContent = "Reply to the agent with: use pair #" + selected.n + " (" + selected.name + ")";
+    });
+
+    render();
+  </script>
+</body>
+</html>

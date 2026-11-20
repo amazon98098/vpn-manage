@@ -1,0 +1,866 @@
+{
+  "bot": "@FineArtsVPNBot",
+  "bot_id": 6538732400,
+  "account": "fxoneplus",
+  "account_id": 9206910824,
+  "steps": [
+    {
+      "step": "start",
+      "message": {
+        "id": 2744,
+        "date": "2026-11-13T17:15:44+00:00",
+        "out": false,
+        "text": "سلام خوش آمدید🌹\n❗️هشدار: تبلیغات بالای بات👆 مربوط به تلگرامه نه ما و غالباَ هم کلاهبرداریست\n\nسرویس vpn مناسب انواع هوش ‌مصنوعی و سایتای تحریمی👇\nفاقد تضمین اتصال در شرایط جنگی❗️\n\nپشتیبانی 🤗 @FineArtSupport",
+        "buttons": [
+          [
+            {
+              "text": "🔐 خرید اشتراک",
+              "callback_data": "buy"
+            }
+          ],
+          [
+            {
+              "text": "🛍 سرویس‌های من (تمدید و...)",
+              "callback_data": "backorder"
+            }
+          ],
+          [
+            {
+              "text": "💰کیف پول",
+              "callback_data": "account"
+            }
+          ],
+          [
+            {
+              "text": "📚 آموزش",
+              "callback_data": "helpbtns"
+            }
+          ],
+          [
+            {
+              "text": "☎️ پشتیبانی",
+              "callback_data": "supportbtns"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "step": "my_services",
+      "message": {
+        "id": 2744,
+        "date": "2026-11-13T17:15:44+00:00",
+        "out": false,
+        "text": "🛍 اشتراک های خریداری شده توسط شما\n\n⚠️ برای مشاهده اطلاعات و مدیریت روی نام کاربری کلیک کنید\n\n🔴 همچنین برای پیدا کردن سریع سرویس خود و مدیریت آن می توانید از دکمه \"🔍 جستجو سریع\" استفاده کنید\n\n📄 صفحه 1 از 3 | 📊 کل: 21 سرویس",
+        "buttons": [
+          [
+            {
+              "text": "✨amirali_wife_7543822✨",
+              "callback_data": "product_64982052"
+            }
+          ],
+          [
+            {
+              "text": "✨445_hassanshahi_5612792✨",
+              "callback_data": "product_17078d62"
+            }
+          ],
+          [
+            {
+              "text": "✨zare_9956882✨",
+              "callback_data": "product_d6e161d3"
+            }
+          ],
+          [
+            {
+              "text": "✨262_daavati_7285419✨",
+              "callback_data": "product_d094b177"
+            }
+          ],
+          [
+            {
+              "text": "✨684_gholampoor_7060685✨",
+              "callback_data": "product_3d2c766b"
+            }
+          ],
+          [
+            {
+              "text": "✨roodaki_5292444✨",
+              "callback_data": "product_245a716a"
+            }
+          ],
+          [
+            {
+              "text": "✨212_minaei_3581599✨",
+              "callback_data": "product_4e495e23"
+            }
+          ],
+          [
+            {
+              "text": "✨vahid_super_6038075✨",
+              "callback_data": "product_0befa70f"
+            }
+          ],
+          [
+            {
+              "text": "✨696_davarpanah_9365591✨",
+              "callback_data": "product_6c760d4f"
+            }
+          ],
+          [
+            {
+              "text": "✨304_saeedi_6643969✨",
+              "callback_data": "product_71c9a5be"
+            }
+          ],
+          [
+            {
+              "text": "جستجو نام کاربری",
+              "callback_data": "searchservice"
+            }
+          ],
+          [
+            {
+              "text": "◀️ بعدی",
+              "callback_data": "servicespage_2"
+            },
+            {
+              "text": "1/3",
+              "callback_data": "page_info"
+            }
+          ],
+          [
+            {
+              "text": "🔙 بازگشت به منوی اصلی",
+              "callback_data": "backuser"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "step": "services_page_0",
+      "items": [
+        {
+          "kind": "service",
+          "text": "✨amirali_wife_7543822✨",
+          "callback_data": "product_64982052"
+        },
+        {
+          "kind": "service",
+          "text": "✨445_hassanshahi_5612792✨",
+          "callback_data": "product_17078d62"
+        },
+        {
+          "kind": "service",
+          "text": "✨zare_9956882✨",
+          "callback_data": "product_d6e161d3"
+        },
+        {
+          "kind": "service",
+          "text": "✨262_daavati_7285419✨",
+          "callback_data": "product_d094b177"
+        },
+        {
+          "kind": "service",
+          "text": "✨684_gholampoor_7060685✨",
+          "callback_data": "product_3d2c766b"
+        },
+        {
+          "kind": "service",
+          "text": "✨roodaki_5292444✨",
+          "callback_data": "product_245a716a"
+        },
+        {
+          "kind": "service",
+          "text": "✨212_minaei_3581599✨",
+          "callback_data": "product_4e495e23"
+        },
+        {
+          "kind": "service",
+          "text": "✨vahid_super_6038075✨",
+          "callback_data": "product_0befa70f"
+        },
+        {
+          "kind": "service",
+          "text": "✨696_davarpanah_9365591✨",
+          "callback_data": "product_6c760d4f"
+        },
+        {
+          "kind": "service",
+          "text": "✨304_saeedi_6643969✨",
+          "callback_data": "product_71c9a5be"
+        },
+        {
+          "kind": "service",
+          "text": "جستجو نام کاربری",
+          "callback_data": "searchservice"
+        },
+        {
+          "kind": "nav",
+          "text": "◀️ بعدی",
+          "callback_data": "servicespage_2"
+        },
+        {
+          "kind": "service",
+          "text": "1/3",
+          "callback_data": "page_info"
+        }
+      ],
+      "text_preview": "🛍 اشتراک های خریداری شده توسط شما\n\n⚠️ برای مشاهده اطلاعات و مدیریت روی نام کاربری کلیک کنید\n\n🔴 همچنین برای پیدا کردن سریع سرویس خود و مدیریت آن می توانید از دکمه \"🔍 جستجو سریع\" استفاده کنید\n\n📄 صفحه 1 "
+    },
+    {
+      "step": "services_page_1",
+      "items": [
+        {
+          "kind": "service",
+          "text": "✨064_borzoyipur_7957042✨",
+          "callback_data": "product_96fd61a9"
+        },
+        {
+          "kind": "service",
+          "text": "✨559_zahra_zare_6055893✨",
+          "callback_data": "product_41778d08"
+        },
+        {
+          "kind": "service",
+          "text": "✨695_zarei_6828825✨",
+          "callback_data": "product_bcf5a2c0"
+        },
+        {
+          "kind": "service",
+          "text": "✨630_sina_hosseini_8310618✨",
+          "callback_data": "product_0b2aff86"
+        },
+        {
+          "kind": "service",
+          "text": "✨622_arash_zare_3443502✨",
+          "callback_data": "product_5e6c4286"
+        },
+        {
+          "kind": "service",
+          "text": "✨020_alireza_4223848✨",
+          "callback_data": "product_fce11ac8"
+        },
+        {
+          "kind": "service",
+          "text": "✨085_shavali_2783956✨",
+          "callback_data": "product_2424cfc4"
+        },
+        {
+          "kind": "service",
+          "text": "✨189_mansurizade_4579038✨",
+          "callback_data": "product_4a0ca77c"
+        },
+        {
+          "kind": "service",
+          "text": "✨amlak_mohammadpoor_8338809✨",
+          "callback_data": "product_5ed97abf"
+        },
+        {
+          "kind": "service",
+          "text": "✨514_karimi_jalili_4516969✨",
+          "callback_data": "product_d17c7471"
+        },
+        {
+          "kind": "service",
+          "text": "جستجو نام کاربری",
+          "callback_data": "searchservice"
+        },
+        {
+          "kind": "nav",
+          "text": "◀️ بعدی",
+          "callback_data": "servicespage_3"
+        },
+        {
+          "kind": "service",
+          "text": "2/3",
+          "callback_data": "page_info"
+        },
+        {
+          "kind": "nav",
+          "text": "قبلی ▶️",
+          "callback_data": "servicespage_1"
+        }
+      ],
+      "text_preview": "🛍 اشتراک های خریداری شده توسط شما\n\n⚠️ برای مشاهده اطلاعات و مدیریت روی نام کاربری کلیک کنید\n\n🔴 همچنین برای پیدا کردن سریع سرویس خود و مدیریت آن می توانید از دکمه \"🔍 جستجو سریع\" استفاده کنید\n\n📄 صفحه 2 "
+    },
+    {
+      "step": "services_page_2",
+      "items": [
+        {
+          "kind": "service",
+          "text": "✨3395_amirali_2934687✨",
+          "callback_data": "product_1906545e"
+        },
+        {
+          "kind": "service",
+          "text": "جستجو نام کاربری",
+          "callback_data": "searchservice"
+        },
+        {
+          "kind": "service",
+          "text": "3/3",
+          "callback_data": "page_info"
+        },
+        {
+          "kind": "nav",
+          "text": "قبلی ▶️",
+          "callback_data": "servicespage_2"
+        }
+      ],
+      "text_preview": "🛍 اشتراک های خریداری شده توسط شما\n\n⚠️ برای مشاهده اطلاعات و مدیریت روی نام کاربری کلیک کنید\n\n🔴 همچنین برای پیدا کردن سریع سرویس خود و مدیریت آن می توانید از دکمه \"🔍 جستجو سریع\" استفاده کنید\n\n📄 صفحه 3 "
+    }
+  ],
+  "services_from_list": [
+    {
+      "kind": "service",
+      "text": "✨amirali_wife_7543822✨",
+      "callback_data": "product_64982052"
+    },
+    {
+      "kind": "service",
+      "text": "✨445_hassanshahi_5612792✨",
+      "callback_data": "product_17078d62"
+    },
+    {
+      "kind": "service",
+      "text": "✨zare_9956882✨",
+      "callback_data": "product_d6e161d3"
+    },
+    {
+      "kind": "service",
+      "text": "✨262_daavati_7285419✨",
+      "callback_data": "product_d094b177"
+    },
+    {
+      "kind": "service",
+      "text": "✨684_gholampoor_7060685✨",
+      "callback_data": "product_3d2c766b"
+    },
+    {
+      "kind": "service",
+      "text": "✨roodaki_5292444✨",
+      "callback_data": "product_245a716a"
+    },
+    {
+      "kind": "service",
+      "text": "✨212_minaei_3581599✨",
+      "callback_data": "product_4e495e23"
+    },
+    {
+      "kind": "service",
+      "text": "✨vahid_super_6038075✨",
+      "callback_data": "product_0befa70f"
+    },
+    {
+      "kind": "service",
+      "text": "✨696_davarpanah_9365591✨",
+      "callback_data": "product_6c760d4f"
+    },
+    {
+      "kind": "service",
+      "text": "✨304_saeedi_6643969✨",
+      "callback_data": "product_71c9a5be"
+    },
+    {
+      "kind": "service",
+      "text": "جستجو نام کاربری",
+      "callback_data": "searchservice"
+    },
+    {
+      "kind": "service",
+      "text": "1/3",
+      "callback_data": "page_info"
+    },
+    {
+      "kind": "service",
+      "text": "✨064_borzoyipur_7957042✨",
+      "callback_data": "product_96fd61a9"
+    },
+    {
+      "kind": "service",
+      "text": "✨559_zahra_zare_6055893✨",
+      "callback_data": "product_41778d08"
+    },
+    {
+      "kind": "service",
+      "text": "✨695_zarei_6828825✨",
+      "callback_data": "product_bcf5a2c0"
+    },
+    {
+      "kind": "service",
+      "text": "✨630_sina_hosseini_8310618✨",
+      "callback_data": "product_0b2aff86"
+    },
+    {
+      "kind": "service",
+      "text": "✨622_arash_zare_3443502✨",
+      "callback_data": "product_5e6c4286"
+    },
+    {
+      "kind": "service",
+      "text": "✨020_alireza_4223848✨",
+      "callback_data": "product_fce11ac8"
+    },
+    {
+      "kind": "service",
+      "text": "✨085_shavali_2783956✨",
+      "callback_data": "product_2424cfc4"
+    },
+    {
+      "kind": "service",
+      "text": "✨189_mansurizade_4579038✨",
+      "callback_data": "product_4a0ca77c"
+    },
+    {
+      "kind": "service",
+      "text": "✨amlak_mohammadpoor_8338809✨",
+      "callback_data": "product_5ed97abf"
+    },
+    {
+      "kind": "service",
+      "text": "✨514_karimi_jalili_4516969✨",
+      "callback_data": "product_d17c7471"
+    },
+    {
+      "kind": "service",
+      "text": "✨3395_amirali_2934687✨",
+      "callback_data": "product_1906545e"
+    }
+  ],
+  "status_samples": [
+    {
+      "list_button": {
+        "kind": "service",
+        "text": "✨amirali_wife_7543822✨",
+        "callback_data": "product_64982052"
+      },
+      "status": {
+        "id": 2744,
+        "date": "2026-11-13T17:15:44+00:00",
+        "out": false,
+        "text": "🛍 اشتراک های خریداری شده توسط شما\n\n⚠️ برای مشاهده اطلاعات و مدیریت روی نام کاربری کلیک کنید\n\n🔴 همچنین برای پیدا کردن سریع سرویس خود و مدیریت آن می توانید از دکمه \"🔍 جستجو سریع\" استفاده کنید\n\n📄 صفحه 3 از 3 | 📊 کل: 21 سرویس",
+        "buttons": [
+          [
+            {
+              "text": "✨3395_amirali_2934687✨",
+              "callback_data": "product_1906545e"
+            }
+          ],
+          [
+            {
+              "text": "جستجو نام کاربری",
+              "callback_data": "searchservice"
+            }
+          ],
+          [
+            {
+              "text": "3/3",
+              "callback_data": "page_info"
+            },
+            {
+              "text": "قبلی ▶️",
+              "callback_data": "servicespage_2"
+            }
+          ],
+          [
+            {
+              "text": "🔙 بازگشت به منوی اصلی",
+              "callback_data": "backuser"
+            }
+          ]
+        ]
+      },
+      "parsed": {
+        "raw_preview": "🛍 اشتراک های خریداری شده توسط شما\n\n⚠️ برای مشاهده اطلاعات و مدیریت روی نام کاربری کلیک کنید\n\n🔴 همچنین برای پیدا کردن سریع سرویس خود و مدیریت آن می توانید از دکمه \"🔍 جستجو سریع\" استفاده کنید\n\n📄 صفحه 3 از 3 | 📊 کل: 21 سرویس",
+        "username": null,
+        "product_raw": null,
+        "expire_raw": null,
+        "traffic_raw": null,
+        "used_raw": null,
+        "remain_raw": null,
+        "status_raw": null
+      },
+      "link_buttons": []
+    },
+    {
+      "list_button": {
+        "kind": "service",
+        "text": "✨445_hassanshahi_5612792✨",
+        "callback_data": "product_17078d62"
+      },
+      "status": {
+        "id": 2746,
+        "date": "2026-11-13T17:15:51+00:00",
+        "out": false,
+        "text": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : 445_hassanshahi_5612792\n\n\n🌍 موقعیت سرویس :مولتی‌لوکیشن🔮v2ray\n🗂 نام محصول :🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت\n\n\n🔋 ترافیک : 50 گیگابایت\n📥 حجم مصرفی : 48.2 گیگابایت\n💢 حجم باقی مانده : 1.8 گیگابایت (3.59%)\n\n📅 تاریخ اتمام : نامحدود (0)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۲۲ ۲۰:۴۵:۰۱\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۲۲ ۲۰:۲۴:۴۳\n#️⃣ کلاینت متصل شده :HiddifyNext/5.5.5 (android) like ClashMeta v2ray sing-box\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+        "buttons": [
+          [
+            {
+              "text": "♻️ بروزرسانی اطلاعات",
+              "callback_data": "updateproduct_17078d62"
+            }
+          ],
+          [
+            {
+              "text": "🔗 دریافت لینک اشتراک",
+              "callback_data": "subscriptionurl_17078d62"
+            },
+            {
+              "text": "⚙️ تغییر لینک",
+              "callback_data": "changelink_17078d62"
+            }
+          ],
+          [
+            {
+              "text": "💊 تمدید سرویس",
+              "callback_data": "extend_17078d62"
+            },
+            {
+              "text": "🚚 انتقال سرویس به کاربر دیگر",
+              "callback_data": "transfer_17078d62"
+            }
+          ],
+          [
+            {
+              "text": "🏠 بازگشت به لیست سرویس ها",
+              "callback_data": "backorder"
+            }
+          ]
+        ]
+      },
+      "parsed": {
+        "raw_preview": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : 445_hassanshahi_5612792\n\n\n🌍 موقعیت سرویس :مولتی‌لوکیشن🔮v2ray\n🗂 نام محصول :🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت\n\n\n🔋 ترافیک : 50 گیگابایت\n📥 حجم مصرفی : 48.2 گیگابایت\n💢 حجم باقی مانده : 1.8 گیگابایت (3.59%)\n\n📅 تاریخ اتمام : نامحدود (0)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۲۲ ۲۰:۴۵:۰۱\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۲۲ ۲۰:۲۴:۴۳\n#️⃣ کلاینت متصل شده :HiddifyNext/5.5.5 (android) like ClashMeta v2ray sing-box\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر ل",
+        "username": "445_hassanshahi_5612792",
+        "product_raw": "🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت",
+        "expire_raw": "نامحدود (0)",
+        "traffic_raw": "50 گیگابایت",
+        "used_raw": "48.2 گیگابایت",
+        "remain_raw": "1.8 گیگابایت (3.59%)",
+        "status_raw": "✅ فعال"
+      },
+      "link_buttons": [
+        {
+          "text": "🔗 دریافت لینک اشتراک",
+          "callback_data": "subscriptionurl_17078d62",
+          "url": null
+        },
+        {
+          "text": "⚙️ تغییر لینک",
+          "callback_data": "changelink_17078d62",
+          "url": null
+        }
+      ],
+      "link_click": {
+        "id": 2746,
+        "date": "2026-11-13T17:15:51+00:00",
+        "out": false,
+        "text": "🔗 دریافت لینک اشتراک\n            \nhttps://fineartsinfo.org/up/djMsMTUyMTYsMTc5NDU5MDE1Ng.NQfNNoK21Vrqpgimk3zQqyJsLbhzaR04TUmioWGAhO8",
+        "buttons": [
+          [
+            {
+              "text": "↪️ بازگشت",
+              "callback_data": "productcheckdata"
+            }
+          ]
+        ]
+      },
+      "subscription_url_redacted": "https://fineartsinfo.org/…redacted…",
+      "subscription_url_host": "fineartsinfo.org"
+    },
+    {
+      "list_button": {
+        "kind": "service",
+        "text": "✨zare_9956882✨",
+        "callback_data": "product_d6e161d3"
+      },
+      "status": {
+        "id": 2748,
+        "date": "2026-11-13T17:15:58+00:00",
+        "out": false,
+        "text": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : zare_9956882\n\n\n🌍 موقعیت سرویس :مولتی‌لوکیشن🔮v2ray\n🗂 نام محصول :🔷100 گیگ حجمی🔹کاربر و زمان نامحدود🔹696 ت\n\n\n🔋 ترافیک : 100 گیگابایت\n📥 حجم مصرفی : 63.65 گیگابایت\n💢 حجم باقی مانده : 36.35 گیگابایت (36.35%)\n\n📅 تاریخ اتمام : نامحدود (0)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۲۲ ۱۹:۴۵:۰۱\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۲۱ ۰۶:۲۳:۴۸\n#️⃣ کلاینت متصل شده :V2Box 9.8.7;IOS 26.6\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+        "buttons": [
+          [
+            {
+              "text": "♻️ بروزرسانی اطلاعات",
+              "callback_data": "updateproduct_d6e161d3"
+            }
+          ],
+          [
+            {
+              "text": "🔗 دریافت لینک اشتراک",
+              "callback_data": "subscriptionurl_d6e161d3"
+            },
+            {
+              "text": "⚙️ تغییر لینک",
+              "callback_data": "changelink_d6e161d3"
+            }
+          ],
+          [
+            {
+              "text": "💊 تمدید سرویس",
+              "callback_data": "extend_d6e161d3"
+            },
+            {
+              "text": "🚚 انتقال سرویس به کاربر دیگر",
+              "callback_data": "transfer_d6e161d3"
+            }
+          ],
+          [
+            {
+              "text": "🏠 بازگشت به لیست سرویس ها",
+              "callback_data": "backorder"
+            }
+          ]
+        ]
+      },
+      "parsed": {
+        "raw_preview": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : zare_9956882\n\n\n🌍 موقعیت سرویس :مولتی‌لوکیشن🔮v2ray\n🗂 نام محصول :🔷100 گیگ حجمی🔹کاربر و زمان نامحدود🔹696 ت\n\n\n🔋 ترافیک : 100 گیگابایت\n📥 حجم مصرفی : 63.65 گیگابایت\n💢 حجم باقی مانده : 36.35 گیگابایت (36.35%)\n\n📅 تاریخ اتمام : نامحدود (0)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۲۲ ۱۹:۴۵:۰۱\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۲۱ ۰۶:۲۳:۴۸\n#️⃣ کلاینت متصل شده :V2Box 9.8.7;IOS 26.6\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+        "username": "zare_9956882",
+        "product_raw": "🔷100 گیگ حجمی🔹کاربر و زمان نامحدود🔹696 ت",
+        "expire_raw": "نامحدود (0)",
+        "traffic_raw": "100 گیگابایت",
+        "used_raw": "63.65 گیگابایت",
+        "remain_raw": "36.35 گیگابایت (36.35%)",
+        "status_raw": "✅ فعال"
+      },
+      "link_buttons": [
+        {
+          "text": "🔗 دریافت لینک اشتراک",
+          "callback_data": "subscriptionurl_d6e161d3",
+          "url": null
+        },
+        {
+          "text": "⚙️ تغییر لینک",
+          "callback_data": "changelink_d6e161d3",
+          "url": null
+        }
+      ],
+      "link_click": {
+        "id": 2748,
+        "date": "2026-11-13T17:15:58+00:00",
+        "out": false,
+        "text": "🔗 دریافت لینک اشتراک\n            \nhttps://fineartsinfo.org/up/djMsMTUyMDYsMTc5NDU5MDE2Mw.1AfXjberTivDPhV04Jm2I5cDsGhB7EvIueMxN_WdNi4",
+        "buttons": [
+          [
+            {
+              "text": "↪️ بازگشت",
+              "callback_data": "productcheckdata"
+            }
+          ]
+        ]
+      },
+      "subscription_url_redacted": "https://fineartsinfo.org/…redacted…",
+      "subscription_url_host": "fineartsinfo.org"
+    },
+    {
+      "list_button": {
+        "kind": "service",
+        "text": "✨262_daavati_7285419✨",
+        "callback_data": "product_d094b177"
+      },
+      "status": {
+        "id": 2750,
+        "date": "2026-11-13T17:16:05+00:00",
+        "out": false,
+        "text": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : 262_daavati_7285419\n\n\n🌍 موقعیت سرویس :مولتی‌لوکیشن🔮v2ray\n🗂 نام محصول :🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت\n\n\n🔋 ترافیک : 50 گیگابایت\n📥 حجم مصرفی : 27.99 گیگابایت\n💢 حجم باقی مانده : 22.01 گیگابایت (44.02%)\n\n📅 تاریخ اتمام : نامحدود (0)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۲۲ ۲۰:۲۰:۰۱\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۲۱ ۰۵:۲۰:۰۷\n#️⃣ کلاینت متصل شده :v2rayNG/2.2.6\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+        "buttons": [
+          [
+            {
+              "text": "♻️ بروزرسانی اطلاعات",
+              "callback_data": "updateproduct_d094b177"
+            }
+          ],
+          [
+            {
+              "text": "🔗 دریافت لینک اشتراک",
+              "callback_data": "subscriptionurl_d094b177"
+            },
+            {
+              "text": "⚙️ تغییر لینک",
+              "callback_data": "changelink_d094b177"
+            }
+          ],
+          [
+            {
+              "text": "💊 تمدید سرویس",
+              "callback_data": "extend_d094b177"
+            },
+            {
+              "text": "🚚 انتقال سرویس به کاربر دیگر",
+              "callback_data": "transfer_d094b177"
+            }
+          ],
+          [
+            {
+              "text": "🏠 بازگشت به لیست سرویس ها",
+              "callback_data": "backorder"
+            }
+          ]
+        ]
+      },
+      "parsed": {
+        "raw_preview": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : 262_daavati_7285419\n\n\n🌍 موقعیت سرویس :مولتی‌لوکیشن🔮v2ray\n🗂 نام محصول :🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت\n\n\n🔋 ترافیک : 50 گیگابایت\n📥 حجم مصرفی : 27.99 گیگابایت\n💢 حجم باقی مانده : 22.01 گیگابایت (44.02%)\n\n📅 تاریخ اتمام : نامحدود (0)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۲۲ ۲۰:۲۰:۰۱\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۲۱ ۰۵:۲۰:۰۷\n#️⃣ کلاینت متصل شده :v2rayNG/2.2.6\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+        "username": "262_daavati_7285419",
+        "product_raw": "🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت",
+        "expire_raw": "نامحدود (0)",
+        "traffic_raw": "50 گیگابایت",
+        "used_raw": "27.99 گیگابایت",
+        "remain_raw": "22.01 گیگابایت (44.02%)",
+        "status_raw": "✅ فعال"
+      },
+      "link_buttons": [
+        {
+          "text": "🔗 دریافت لینک اشتراک",
+          "callback_data": "subscriptionurl_d094b177",
+          "url": null
+        },
+        {
+          "text": "⚙️ تغییر لینک",
+          "callback_data": "changelink_d094b177",
+          "url": null
+        }
+      ],
+      "link_click": {
+        "id": 2750,
+        "date": "2026-11-13T17:16:05+00:00",
+        "out": false,
+        "text": "🔗 دریافت لینک اشتراک\n            \nhttps://fineartsinfo.org/up/djMsMTQ2NTEsMTc5NDU5MDE3MA.vujFJNZdWwFfXi-OPDHTrqjRma7dB-KT8vpH5gM6fdE",
+        "buttons": [
+          [
+            {
+              "text": "↪️ بازگشت",
+              "callback_data": "productcheckdata"
+            }
+          ]
+        ]
+      },
+      "subscription_url_redacted": "https://fineartsinfo.org/…redacted…",
+      "subscription_url_host": "fineartsinfo.org"
+    },
+    {
+      "list_button": {
+        "kind": "service",
+        "text": "✨684_gholampoor_7060685✨",
+        "callback_data": "product_3d2c766b"
+      },
+      "status": {
+        "id": 2752,
+        "date": "2026-11-13T17:16:16+00:00",
+        "out": false,
+        "text": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : 684_gholampoor_7060685\n\n\n🌍 موقعیت سرویس :مولتی‌لوکیشن🔮v2ray\n🗂 نام محصول :🔷100 گیگ حجمی🔹کاربر و زمان نامحدود🔹696 ت\n\n\n🔋 ترافیک : 100 گیگابایت\n📥 حجم مصرفی : 62.89 گیگابایت\n💢 حجم باقی مانده : 37.11 گیگابایت (37.11%)\n\n📅 تاریخ اتمام : نامحدود (0)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۲۲ ۱۸:۱۵:۳۱\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۲۲ ۱۹:۳۴:۱۳\n#️⃣ کلاینت متصل شده :v2rayNG/2.2.6\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+        "buttons": [
+          [
+            {
+              "text": "♻️ بروزرسانی اطلاعات",
+              "callback_data": "updateproduct_3d2c766b"
+            }
+          ],
+          [
+            {
+              "text": "🔗 دریافت لینک اشتراک",
+              "callback_data": "subscriptionurl_3d2c766b"
+            },
+            {
+              "text": "⚙️ تغییر لینک",
+              "callback_data": "changelink_3d2c766b"
+            }
+          ],
+          [
+            {
+              "text": "💊 تمدید سرویس",
+              "callback_data": "extend_3d2c766b"
+            },
+            {
+              "text": "🚚 انتقال سرویس به کاربر دیگر",
+              "callback_data": "transfer_3d2c766b"
+            }
+          ],
+          [
+            {
+              "text": "🏠 بازگشت به لیست سرویس ها",
+              "callback_data": "backorder"
+            }
+          ]
+        ]
+      },
+      "parsed": {
+        "raw_preview": "📊وضعیت سرویس : ✅ فعال\n👤 نام سرویس : 684_gholampoor_7060685\n\n\n🌍 موقعیت سرویس :مولتی‌لوکیشن🔮v2ray\n🗂 نام محصول :🔷100 گیگ حجمی🔹کاربر و زمان نامحدود🔹696 ت\n\n\n🔋 ترافیک : 100 گیگابایت\n📥 حجم مصرفی : 62.89 گیگابایت\n💢 حجم باقی مانده : 37.11 گیگابایت (37.11%)\n\n📅 تاریخ اتمام : نامحدود (0)\n\n\n📶 اخرین زمان اتصال  : ۱۴۰۵/۰۸/۲۲ ۱۸:۱۵:۳۱\n🔄 اخرین زمان آپدیت لینک اشتراک  : ۱۴۰۵/۰۸/۲۲ ۱۹:۳۴:۱۳\n#️⃣ کلاینت متصل شده :v2rayNG/2.2.6\n\n💡 برای قطع دسترسی دیگران کافیست روی گزینه \"تغییر لینک\" کلیک کنید.",
+        "username": "684_gholampoor_7060685",
+        "product_raw": "🔷100 گیگ حجمی🔹کاربر و زمان نامحدود🔹696 ت",
+        "expire_raw": "نامحدود (0)",
+        "traffic_raw": "100 گیگابایت",
+        "used_raw": "62.89 گیگابایت",
+        "remain_raw": "37.11 گیگابایت (37.11%)",
+        "status_raw": "✅ فعال"
+      },
+      "link_buttons": [
+        {
+          "text": "🔗 دریافت لینک اشتراک",
+          "callback_data": "subscriptionurl_3d2c766b",
+          "url": null
+        },
+        {
+          "text": "⚙️ تغییر لینک",
+          "callback_data": "changelink_3d2c766b",
+          "url": null
+        }
+      ],
+      "link_click": {
+        "id": 2752,
+        "date": "2026-11-13T17:16:16+00:00",
+        "out": false,
+        "text": "🔗 دریافت لینک اشتراک\n            \nhttps://fineartsinfo.org/up/djMsMTQ2MzgsMTc5NDU5MDE4MA.On_kZmhEGCjGZ4KvW4kJG-ZaByoz3GnNtIkweO5v8CE",
+        "buttons": [
+          [
+            {
+              "text": "↪️ بازگشت",
+              "callback_data": "productcheckdata"
+            }
+          ]
+        ]
+      },
+      "subscription_url_redacted": "https://fineartsinfo.org/…redacted…",
+      "subscription_url_host": "fineartsinfo.org"
+    }
+  ],
+  "link_samples": [],
+  "compat_notes": [
+    "Subscription URL obtainable — URL userinfo may be possible."
+  ],
+  "history_count": 57,
+  "pages_walked": 3,
+  "services_from_history": [
+    {
+      "username": "696_davarpanah_9365591",
+      "product_raw": "🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت",
+      "expire_raw": "نامحدود (0)",
+      "from_message_id": 2110
+    },
+    {
+      "username": "514_karimi_jalili_4516969",
+      "product_raw": "🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت",
+      "expire_raw": "نامحدود (0)",
+      "from_message_id": 194
+    },
+    {
+      "username": "3395_amirali_2934687",
+      "product_raw": "🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت",
+      "expire_raw": "نامحدود (0)",
+      "from_message_id": 1665
+    },
+    {
+      "username": "amirali_wife_7543822",
+      "product_raw": null,
+      "expire_raw": null,
+      "from_message_id": 1681
+    },
+    {
+      "username": "020_alireza_4223848",
+      "product_raw": "🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت",
+      "expire_raw": "نامحدود (0)",
+      "from_message_id": 465
+    }
+  ]
+}

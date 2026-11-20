@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% from "_flash.html" import render as flash_box %}
+{% block title %}{{ t('menus_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('menus_title') }}</h1>
+    <p>{{ t('menus_lead') }}</p>
+  </div>
+  <div class="top-actions">
+    <button class="btn" type="submit" form="menus-save-all">{{ t('save_all') }}</button>
+  </div>
+</div>
+{% if flash %}{{ flash_box(t('saved_flash', flash=flash)) }}{% endif %}
+{% if err %}<div class="flash err">{{ err }}</div>{% endif %}
+
+<nav class="tab-bar menus-tabs" aria-label="Menus">
+  <a class="chip {% if bot != 'admin' %}ok{% endif %}" href="/menus?bot=customer">{{ t('menus_customer') }}</a>
+  <a class="chip {% if bot == 'admin' %}ok{% endif %}" href="/menus?bot=admin">{{ t('menus_admin') }}</a>
+</nav>
+
+<nav class="menus-toc" aria-label="Categories">
+  <a class="chip ghost" href="#cat-main">{{ t('menus_cat_main') }}</a>
+  {% if snap.inner_reply %}<a class="chip ghost" href="#cat-inner">{{ t('menus_cat_inner') }}</a>{% endif %}
+  {% if snap.inline_groups %}
+    {% for grp in snap.inline_groups %}
+    <a class="chip ghost" href="#cat-inline-{{ grp.key }}">{{ grp.title }}</a>
+    {% endfor %}
+  {% elif snap.inline_sections %}
+  <a class="chip ghost" href="#cat-inline">{{ t('menus_cat_inline') }}</a>
+  {% endif %}
+</nav>
+
+<form id="menus-save-all" method="post" action="/menus/{{ bot }}/save-all" class="menus-stack" data-menus-form>
+  <div id="cat-main" class="menus-cat-title">{{ t('menus_cat_main') }}</div>
+  <section class="panel menu-section">
+    <header class="menu-sec-head">
+      <div>
+        <h2>{{ snap.main.title }}</h2>
+        <p class="muted">{{ snap.main.subtitle }}</p>
+      </div>
+      <span class="chip">{{ t('menu_kind_reply') }}</span>
+    </header>
+    <p class="muted menu-hint">{{ t('menu_builder_hint') }}</p>
+    <div
+      class="kb-builder"
+      data-kb-builder
+      data-scope="main"
+      data-label-prefix="label_main_"
+      data-catalog="{{ snap.main.catalog | tojson | forceescape }}"
+    >
+      <input type="hidden" name="layout_main" value="{{ snap.main.layout_text }}" data-kb-layout />
+      <div class="kb-phone" dir="rtl">
+        <div class="kb-phone-bar">Telegram</div>
+        <div class="kb-rows" data-kb-rows>
+          {% for row in snap.main.rows %}
+          <div class="kb-row" data-kb-row>
+            {% for cell in row %}
+            <div class="kb-btn" data-kb-btn data-action="{{ cell.id }}">
+              <span class="kb-btn-meta">{{ cell.fa_name }}</span>
+              <input
+                class="kb-btn-label"
+                name="label_main_{{ cell.id }}"
+                value="{{ cell.label }}"
+                dir="rtl"
+                autocomplete="off"
+              />
+              <div class="kb-btn-tools">
+                <button type="button" class="kb-ico" data-kb-move-left title="→">‹</button>
+                <button type="button" class="kb-ico" data-kb-move-right title="←">›</button>
+                <button type="button" class="kb-ico danger" data-kb-remove title="{{ t('menu_remove_btn') }}">×</button>
+              </div>
+            </div>
+            {% endfor %}
+            <button type="button" class="kb-add-in-row" data-kb-add-in-row>+ {{ t('menu_add_btn') }}</button>
+            <div class="kb-row-tools">
+              <button type="button" class="kb-ico" data-kb-row-up title="↑">↑</button>
+              <button type="button" class="kb-ico" data-kb-row-down title="↓">↓</button>
+              <button type="button" class="kb-ico danger" data-kb-row-remove title="{{ t('menu_remove_row') }}">×</button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="kb-footer-actions">
+          <button type="button" class="btn ghost small" data-kb-add-row>+ {{ t('menu_add_row') }}</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {% if snap.inner_reply %}
+  <div id="cat-inner" class="menus-cat-title">{{ t('menus_cat_inner') }}</div>
+  {% for inner in snap.inner_reply %}
+  <section class="panel menu-section">
+    <header class="menu-sec-head">
+      <div>
+        <h2>{{ inner.title }}</h2>
+        <p class="muted">{{ inner.subtitle }}</p>
+      </div>
+      <span class="chip warn">{{ t('menu_kind_inner') }}</span>
+    </header>
+    <p class="muted menu-hint">{{ t('menu_inner_hint') }}</p>
+    <div
+      class="kb-builder"
+      data-kb-builder
+      data-scope="{{ inner.scope }}"
+      data-label-prefix="{{ inner.label_prefix }}"
+      data-catalog="{{ inner.catalog | tojson | forceescape }}"
+    >
+      <input type="hidden" name="{{ inner.layout_field }}" value="{{ inner.layout_text }}" data-kb-layout />
+      <div class="kb-phone" dir="rtl">
+        <div class="kb-phone-bar">{{ t('menu_kind_inner') }}</div>
+        <div class="kb-rows" data-kb-rows>
+          {% for row in inner.rows %}
+          <div class="kb-row" data-kb-row>
+            {% for cell in row %}
+            <div class="kb-btn" data-kb-btn data-action="{{ cell.id }}">
+              <span class="kb-btn-meta">{{ cell.fa_name }}</span>
+              <input
+                class="kb-btn-label"
+                name="{{ inner.label_prefix }}{{ cell.id }}"
+                value="{{ cell.label }}"
+                dir="rtl"
+                autocomplete="off"
+              />
+              <div class="kb-btn-tools">
+                <button type="button" class="kb-ico" data-kb-move-left title="→">‹</button>
+                <button type="button" class="kb-ico" data-kb-move-right title="←">›</button>
+                <button type="button" class="kb-ico danger" data-kb-remove title="{{ t('menu_remove_btn') }}">×</button>
+              </div>
+            </div>
+            {% endfor %}
+            <button type="button" class="kb-add-in-row" data-kb-add-in-row>+ {{ t('menu_add_btn') }}</button>
+            <div class="kb-row-tools">
+              <button type="button" class="kb-ico" data-kb-row-up title="↑">↑</button>
+              <button type="button" class="kb-ico" data-kb-row-down title="↓">↓</button>
+              <button type="button" class="kb-ico danger" data-kb-row-remove title="{{ t('menu_remove_row') }}">×</button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="kb-footer-actions">
+          <button type="button" class="btn ghost small" data-kb-add-row>+ {{ t('menu_add_row') }}</button>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endfor %}
+  {% endif %}
+
+  {% if snap.inline_groups %}
+  {% for grp in snap.inline_groups %}
+  <div id="cat-inline-{{ grp.key }}" class="menus-cat-title">{{ t('menus_cat_inline') }} · {{ grp.title }}</div>
+  {% for sec in grp.sections %}
+  <section class="panel menu-section">
+    <header class="menu-sec-head">
+      <div>
+        <h2>{{ sec.title }}</h2>
+        <p class="muted">{{ t('menu_inline_hint') }}</p>
+      </div>
+      <span class="chip">{{ t('menu_kind_inline') }} · {{ grp.title }}</span>
+    </header>
+    <div class="inline-menu-list" data-inline-menu="{{ sec.id }}">
+      <input
+        type="hidden"
+        name="inline_order__{{ sec.id }}"
+        value="{% for it in sec['items'] %}{{ it.id }}{% if not loop.last %},{% endif %}{% endfor %}"
+        data-inline-order
+      />
+      {% for it in sec['items'] %}
+      <div class="inline-menu-item" data-inline-item data-item-id="{{ it.id }}">
+        <span class="inline-idx">{{ loop.index }}</span>
+        <div class="inline-fields">
+          <span class="muted small">{{ it.default_label }} · <code dir="ltr">{{ it.callback }}</code></span>
+          <input
+            name="inline__{{ sec.id }}__{{ it.id }}"
+            value="{{ it.label }}"
+            dir="rtl"
+            autocomplete="off"
+          />
+        </div>
+        <div class="inline-tools">
+          <button type="button" class="kb-ico" data-inline-up title="↑">↑</button>
+          <button type="button" class="kb-ico" data-inline-down title="↓">↓</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  {% endfor %}
+  {% elif snap.inline_sections %}
+  <div id="cat-inline" class="menus-cat-title">{{ t('menus_cat_inline') }}</div>
+  {% for sec in snap.inline_sections %}
+  <section class="panel menu-section">
+    <header class="menu-sec-head">
+      <div>
+        <h2>{{ sec.title }}</h2>
+        <p class="muted">{{ t('menu_inline_hint') }}</p>
+      </div>
+      <span class="chip">{{ t('menu_kind_inline') }} · {{ sec.category }}</span>
+    </header>
+    <div class="inline-menu-list" data-inline-menu="{{ sec.id }}">
+      <input
+        type="hidden"
+        name="inline_order__{{ sec.id }}"
+        value="{% for it in sec['items'] %}{{ it.id }}{% if not loop.last %},{% endif %}{% endfor %}"
+        data-inline-order
+      />
+      {% for it in sec['items'] %}
+      <div class="inline-menu-item" data-inline-item data-item-id="{{ it.id }}">
+        <span class="inline-idx">{{ loop.index }}</span>
+        <div class="inline-fields">
+          <span class="muted small">{{ it.default_label }} · <code dir="ltr">{{ it.callback }}</code></span>
+          <input
+            name="inline__{{ sec.id }}__{{ it.id }}"
+            value="{{ it.label }}"
+            dir="rtl"
+            autocomplete="off"
+          />
+        </div>
+        <div class="inline-tools">
+          <button type="button" class="kb-ico" data-inline-up title="↑">↑</button>
+          <button type="button" class="kb-ico" data-inline-down title="↓">↓</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  {% endif %}
+
+  <div class="toolbar sticky-save">
+    <button class="btn" type="submit">{{ t('save_all') }}</button>
+    <span class="muted small">{{ t('menu_save_note') }}</span>
+  </div>
+</form>
+
+<form method="post" action="/menus/{{ bot }}/reset" class="menus-reset" onsubmit="return confirm({{ t('menu_reset_confirm')|tojson }});">
+  <button class="btn ghost small" type="submit">{{ t('menu_reset') }}</button>
+</form>
+{% endblock %}

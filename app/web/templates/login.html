@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ t('login_title') }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("fx_theme") || "dark";
+        if (t !== "light" && t !== "dark" && t !== "ocean") t = "dark";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-theme">
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <form method="post" action="/lang" class="inline-form">
+          <input type="hidden" name="lang" value="en" />
+          <button type="submit" aria-pressed="{{ 'true' if lang == 'en' else 'false' }}">{{ t('lang_en') }}</button>
+        </form>
+        <form method="post" action="/lang" class="inline-form">
+          <input type="hidden" name="lang" value="fa" />
+          <button type="submit" aria-pressed="{{ 'true' if lang == 'fa' else 'false' }}">{{ t('lang_fa') }}</button>
+        </form>
+      </div>
+      <div class="theme-toggle" data-theme-toggle role="group" aria-label="Theme">
+        <button type="button" data-theme-value="dark">{{ t('theme_dark') }}</button>
+        <button type="button" data-theme-value="light">{{ t('theme_light') }}</button>
+        <button type="button" data-theme-value="ocean">{{ t('theme_ocean') }}</button>
+      </div>
+    </div>
+    <div class="login-card">
+      <h1>FX One</h1>
+      <p>{{ t('login_lead') }}</p>
+      {% if error %}
+        <div class="flash err">{{ t('login_wrong') }}</div>
+      {% endif %}
+      <form method="post" action="/login" class="form-stack" style="padding:0">
+        <label>
+          {{ t('login_password') }}
+          <input type="password" name="password" autofocus required placeholder="ADMIN_WEB_PASSWORD" />
+        </label>
+        <button class="btn" type="submit">{{ t('login_enter') }}</button>
+      </form>
+    </div>
+  </div>
+  <script src="/static/panel.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+logs/
+probe/*.session
+probe/*.session-journal
+probe/.env
+probe/login_state*.json
+probe/history_*.json

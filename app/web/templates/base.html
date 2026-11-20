@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}FX One Admin{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("fx_theme") || "dark";
+        if (t !== "light" && t !== "dark" && t !== "ocean") t = "dark";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+  <button type="button" class="nav-scrim" data-nav-close aria-label="Close menu" tabindex="-1"></button>
+  <div class="shell">
+    <aside class="side" data-side-nav id="side-nav">
+      <div class="brand">
+        <div class="mark">FX <span>One</span></div>
+        <div class="sub">{{ t('brand_sub') }}</div>
+      </div>
+      <div class="side-tools">
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <form method="post" action="/lang" class="inline-form">
+            <input type="hidden" name="lang" value="en" />
+            <button type="submit" aria-pressed="{{ 'true' if lang == 'en' else 'false' }}">{{ t('lang_en') }}</button>
+          </form>
+          <form method="post" action="/lang" class="inline-form">
+            <input type="hidden" name="lang" value="fa" />
+            <button type="submit" aria-pressed="{{ 'true' if lang == 'fa' else 'false' }}">{{ t('lang_fa') }}</button>
+          </form>
+        </div>
+        <div class="theme-toggle" data-theme-toggle role="group" aria-label="Theme">
+          <button type="button" data-theme-value="dark">{{ t('theme_dark') }}</button>
+          <button type="button" data-theme-value="light">{{ t('theme_light') }}</button>
+          <button type="button" data-theme-value="ocean">{{ t('theme_ocean') }}</button>
+        </div>
+        <form method="post" action="/logout" class="side-logout">
+          <button class="btn ghost small" type="submit">{{ t('sign_out') }}</button>
+        </form>
+      </div>
+      <nav class="nav" data-panel-nav>
+        {% for key, label, href in nav %}
+          <a href="{{ href }}" class="{% if active == key %}active{% endif %}" data-nav-key="{{ key }}">
+            <span class="nav-label">{{ label }}</span>
+            {% set n = badges.get(key, 0) if badges else 0 %}
+            <span class="nav-badge {% if not n %}is-zero{% endif %}" data-nav-badge="{{ key }}">{% if n %}{{ n }}{% endif %}</span>
+          </a>
+        {% endfor %}
+      </nav>
+      <div class="notify-bar">
+        <button type="button" class="btn ghost small" data-notify-enable>{{ t('notify_enable') }}</button>
+        <span class="muted small" data-notify-status></span>
+      </div>
+      <div class="side-foot">
+        <div>{{ t('local_admin') }} · {{ now.strftime('%Y-%m-%d %H:%M') }} UTC</div>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="mobile-bar">
+        <button type="button" class="nav-toggle" data-nav-toggle aria-controls="side-nav" aria-expanded="false" aria-label="Menu">☰</button>
+        <div class="mobile-bar-brand">FX <span>One</span></div>
+      </div>
+      {% block body %}{% endblock %}
+    </main>
+  </div>
+  <script>
+    window.__fxI18n = {
+      toastCopied: {{ t('toast_copied')|tojson }},
+      toastCopyFail: {{ t('toast_copy_fail')|tojson }},
+      confirmBulk: {{ t('confirm_bulk')|tojson }},
+      selectOne: {{ t('select_one')|tojson }},
+      menuNoActions: {{ t('menu_no_actions')|tojson }},
+      notifyTitle: {{ t('notify_title')|tojson }},
+      notifyOrders: {{ t('notify_orders')|tojson }},
+      notifyQueue: {{ t('notify_queue')|tojson }},
+      notifyTickets: {{ t('notify_tickets')|tojson }},
+      notifyAlmost: {{ t('notify_almost')|tojson }},
+      notifyWarnings: {{ t('notify_warnings')|tojson }},
+      notifyOn: {{ t('notify_on')|tojson }},
+      notifyOff: {{ t('notify_off')|tojson }},
+      notifyDenied: {{ t('notify_denied')|tojson }}
+    };
+    window.__fxBadges = {{ badges | tojson }};
+  </script>
+  <script src="/static/panel.js" defer></script>
+</body>
+</html>

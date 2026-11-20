@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_flash.html" import render as flash_box %}
+{% block title %}{{ t('prices_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('prices_title') }}</h1>
+    <p>{{ t('prices_lead') }}</p>
+  </div>
+</div>
+{% if flash %}{{ flash_box(t('saved_renamed', extra=(t('renamed_extra', n=renamed) if renamed else ''))) }}{% endif %}
+{% if warn == 'rename' %}{{ flash_box(t('rename_warn'), err=true) }}{% endif %}
+<section class="panel">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t('order_col') }}</th>
+        <th>{{ t('key') }}</th>
+        <th>{{ t('plan') }}</th>
+        <th>{{ t('price_cost') }}</th>
+        <th>{{ t('enabled') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in plans %}
+      {% set icon = '💎' if (p.duration_days or 0) == 0 else '✨' %}
+      <tr>
+        <td class="row-actions">
+          <form method="post" action="/prices/{{ p.id }}/move" style="display:inline">
+            <input type="hidden" name="direction" value="up" />
+            <button class="btn ghost small" type="submit" title="Move up">↑</button>
+          </form>
+          <form method="post" action="/prices/{{ p.id }}/move" style="display:inline">
+            <input type="hidden" name="direction" value="down" />
+            <button class="btn ghost small" type="submit" title="Move down">↓</button>
+          </form>
+        </td>
+        <td class="mono num-cell">{{ icon }} {{ p.key }}</td>
+        <td colspan="2" class="price-edit">
+          <span class="plan-mark" title="Plan type">{{ icon }}</span>
+          <input form="prices-save-all" name="title_{{ p.id }}" class="price-edit-input" value="{{ p.title }}" placeholder="Title" />
+          <span class="muted mono">{% if (p.duration_days or 0) == 0 %}{{ t('unlimited_days') }}{% else %}{{ p.duration_days }}d{% endif %}</span>
+          <span class="mono">{% if p.traffic_gb %}{{ p.traffic_gb }} GB{% else %}—{% endif %}</span>
+          <input form="prices-save-all" type="number" name="price_toman_{{ p.id }}" class="price-edit-input num-cell" value="{{ p.price_toman }}" />
+          <span class="muted mono num-cell">cost {{ (p.vendor_cost_toman or 0) | toman }}</span>
+          <label class="chip"><input form="prices-save-all" type="checkbox" name="enabled_{{ p.id }}" {% if p.enabled %}checked{% endif %} /> on</label>
+        </td>
+        <td>
+          <form method="post" action="/prices/{{ p.id }}/delete" onsubmit="return confirm({{ t('delete_plan_confirm')|tojson }});">
+            <button class="btn danger small" type="submit">{{ t('delete') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">{{ t('no_price_plans') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if plans %}
+  <form id="prices-save-all" method="post" action="/prices/save-all">
+    <div class="toolbar">
+      <button class="btn" type="submit">{{ t('save_all') }}</button>
+    </div>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,14 @@
+2026-11-12 23:24:53,718 INFO timed_renew: DB sub id=89 vendor_service_id=0c684cb9 expire=2026-12-03 10:33:35
+2026-11-12 23:24:53,720 INFO telethon.network.mtprotosender: Connecting to 149.154.167.91:443/TcpFull...
+2026-11-12 23:24:53,721 INFO telethon.network.mtprotosender: Connection to 149.154.167.91:443/TcpFull complete!
+2026-11-12 23:24:55,126 INFO app.telegram.user_client: User client ready as fxoneplus (9206910824)
+2026-11-12 23:24:56,043 INFO app.vendors.netplus_driver: STEP send '/services' -> 0.57s
+2026-11-12 23:24:56,864 INFO app.vendors.netplus_driver: STEP click searchservice (new poll) -> 0.67s
+2026-11-12 23:24:57,848 INFO app.vendors.netplus_driver: STEP send '302_naseri' -> 0.83s
+2026-11-12 23:24:57,848 INFO app.vendors.netplus_driver: TIMING open_status 302_naseri direct total=2.72s steps=[('send_/services', 0.9176030429998718), ('click_searchservice', 0.8210106809992794), ('type_username', 0.9838827200001106)]
+2026-11-12 23:24:58,767 INFO app.vendors.netplus_driver: STEP click extend_0c684cb9 (edit) -> 0.73s
+2026-11-12 23:24:59,435 INFO app.vendors.netplus_driver: STEP click exntedagei (edit poll) -> 0.51s
+2026-11-12 23:24:59,605 INFO app.vendors.netplus_driver: TIMING drive_renew 302_naseri total=4.48s ok=True stage=payment steps=[('open_status', 2.7226292479999756), ('click_extend', 0.9181556650000857), ('click_current_plan', 0.6682622609996542), ('walk_to_payment', 0.16993534100038232)]
+2026-11-12 23:24:59,606 INFO timed_renew: DONE {"username": "302_naseri", "service_id": "0c684cb9", "ok": true, "stage": "payment", "error": null, "total_seconds": 4.48, "payment": {"amount_rial": "1039680", "card": "5041721256102998", "holder": "زرگل پور حسین", "message_id": 2466, "text_preview": "⚠️ مبلغ را دقیق و تا رقم آخر واریز کنید؛ رند نکنید.\n\n🛑 فقط کارت‌به‌کارت کنید؛ از «پل» واریز نکنید.\n\n💰 مبلغ: 1039680 ریال\n\n💳 شماره کارت: 5041721256102998\n\n👤 به نام: زرگل پور حسین\n\n👆 برای کپی، روی مبلغ یا شماره کارت بزنید.\n\n✅ با واریز مبلغ دقیق، پرداخت شما لحظه‌ای و خودکار تأیید می‌شود؛ نیازی به ارسال رسید نیست.\n\n🔴 اگر مبلغ را رند واریز کردید، تأیید دستی زمان می‌برد. نیازی به واریز مابه‌التفاوت نیست"}}
+2026-11-12 23:24:59,606 INFO telethon.network.mtprotosender: Disconnecting from 149.154.167.91:443/TcpFull...
+2026-11-12 23:24:59,607 INFO telethon.network.mtprotosender: Disconnection from 149.154.167.91:443/TcpFull complete!

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ t('orders_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('orders_title') }}</h1>
+    <p>{{ t('matching_page', total=total, page=page + 1, pages=pages) }}</p>
+  </div>
+  <div class="top-actions">
+    <form method="post" action="/orders/approve-all" onsubmit="return confirm({{ t('approve_all_confirm')|tojson }});">
+      <button class="btn" type="submit">{{ t('approve_all') }}</button>
+    </form>
+    <form method="post" action="/orders/clear" onsubmit="return confirm({{ t('clear_all_confirm')|tojson }});">
+      <input type="hidden" name="scope" value="all" />
+      <button class="btn danger" type="submit">{{ t('clear_all_orders') }}</button>
+    </form>
+    {% if status_f %}
+    <form method="post" action="/orders/clear" onsubmit="return confirm({{ t('clear_filtered_confirm', status=status_f)|tojson }});">
+      <input type="hidden" name="scope" value="filtered" />
+      <input type="hidden" name="status_f" value="{{ status_f }}" />
+      <button class="btn ghost" type="submit">{{ t('clear_filtered') }}</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% if flash %}<div class="flash">{{ t('orders_updated', flash=flash) }}</div>{% endif %}
+<section class="panel">
+  <div class="toolbar">
+    <form method="get" action="/orders">
+      <select name="status_f">
+        <option value="">{{ t('all_statuses') }}</option>
+        {% for st in ['awaiting_payment','receipt_window','awaiting_review','fulfilling','completed','cancelled','rejected','expired'] %}
+        <option value="{{ st }}" {% if status_f == st %}selected{% endif %}>{{ st }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn small" type="submit">{{ t('filter') }}</button>
+    </form>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-col-picker data-storage-key="fx_ord_cols">
+      <span class="muted">{{ t('columns') }}</span>
+      <label class="chip"><input type="checkbox" value="id" checked /> 🆔</label>
+      <label class="chip"><input type="checkbox" value="tg" checked /> TG</label>
+      <label class="chip"><input type="checkbox" value="kind" checked /> {{ t('kind') }}</label>
+      <label class="chip"><input type="checkbox" value="service" checked /> {{ t('service') }}</label>
+      <label class="chip"><input type="checkbox" value="status" checked /> {{ t('status') }}</label>
+      <label class="chip"><input type="checkbox" value="amount" checked /> {{ t('amount') }}</label>
+      <label class="chip"><input type="checkbox" value="job" checked /> {{ t('job') }}</label>
+    </div>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-act-picker data-storage-key="fx_ord_acts">
+      <span class="muted">{{ t('list_actions') }}</span>
+      <label class="chip"><input type="checkbox" value="approve" checked /> {{ t('approve') }}</label>
+      <label class="chip"><input type="checkbox" value="reject" checked /> {{ t('reject') }}</label>
+    </div>
+  </div>
+  <div class="toolbar tools-bar">
+    <form method="post" action="/orders/bulk" data-bulk class="bulk-form">
+      <input type="hidden" name="ids" value="" />
+      <input type="hidden" name="action" value="delete" />
+      <button class="btn danger small" type="submit">{{ t('delete_selected') }}</button>
+    </form>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th><input type="checkbox" data-select-all /></th>
+        <th data-col="id">🆔</th>
+        <th data-col="tg">👤 TG</th>
+        <th data-col="kind">{{ t('kind') }}</th>
+        <th data-col="service">{{ t('service') }}</th>
+        <th data-col="status">📡 {{ t('status') }}</th>
+        <th data-col="amount">{{ t('amount') }}</th>
+        <th data-col="job">{{ t('job') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in rows %}
+      <tr>
+        <td><input class="row-pick" type="checkbox" value="{{ o.id }}" /></td>
+        <td class="mono" data-col="id"><button type="button" class="copy-cell" data-copy="{{ o.id }}" title="{{ t('copy_id') }}">{{ o.id }}</button></td>
+        <td class="mono" data-col="tg"><button type="button" class="copy-cell" data-copy="{{ o.telegram_id }}" title="{{ t('copy_id') }}">{{ o.telegram_id }}</button></td>
+        <td data-col="kind">{{ o.kind }}</td>
+        <td class="mono" data-col="service">{% if o.service_username %}<button type="button" class="copy-cell" data-copy="{{ o.service_username }}" title="{{ t('copy_username') }}">{{ o.service_username }}</button>{% else %}—{% endif %}</td>
+        <td data-col="status"><span class="chip">{{ o.status }}</span></td>
+        <td class="mono num-cell" data-col="amount">{{ (o.price_toman or 0) | toman }}</td>
+        <td class="mono" data-col="job">{{ o.renew_job_id or '—' }}</td>
+        <td class="row-actions">
+          {% if o.status in ['awaiting_payment','receipt_window','awaiting_review','approved'] %}
+          <form method="post" action="/orders/{{ o.id }}/approve" style="display:inline" data-act="approve">
+            <button class="btn small" type="submit">{{ t('approve') }}</button>
+          </form>
+          <form method="post" action="/orders/{{ o.id }}/reject" style="display:inline" data-act="reject" onsubmit="return confirm({{ t('reject_confirm')|tojson }});">
+            <button class="btn danger small" type="submit">{{ t('reject') }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="muted">{{ t('no_orders') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pager">
+    {% if page > 0 %}<a class="btn ghost small" href="/orders?status_f={{ status_f }}&page={{ page - 1 }}">{{ t('prev') }}</a>{% endif %}
+    <span class="muted">{{ t('page_of', page=page + 1, pages=pages) }}</span>
+    {% if page + 1 < pages %}<a class="btn ghost small" href="/orders?status_f={{ status_f }}&page={{ page + 1 }}">{{ t('next') }}</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

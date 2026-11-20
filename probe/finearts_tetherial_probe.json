@@ -1,0 +1,52 @@
+{
+  "reused_preinvoice": true,
+  "preinvoice_text": "❗️ فاقد تضمینِ اتصال در شرایط جنگی یا نت داخلی\n\n📇 پیش فاکتور شما:\n👤 نام کاربری:  9206910824_2723\n🔐 نام سرویس: 🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت\n📆 مدت اعتبار: نامحدود\n💶 قیمت:  360000 تومان\n👥 حجم اکانت: 50 گیگ\n🗒 یادداشت محصول : \n💵 موجودی کیف پول شما : 0\n          \n💰 سفارش شما آماده پرداخت است",
+  "preinvoice_buttons": [
+    [
+      {
+        "text": "💰 پرداخت و دریافت سرویس",
+        "callback_data": "confirmandgetservice"
+      }
+    ],
+    [
+      {
+        "text": "🏷 اعمال کد تخفیف",
+        "callback_data": "get_discount_code"
+      }
+    ],
+    [
+      {
+        "text": "🏠 بازگشت به منوی اصلی",
+        "callback_data": "back_product"
+      }
+    ]
+  ],
+  "pay_text": "📝 موجودی حساب شما کافی نیست. لطفاً یکی از روش‌های پرداخت زیر را انتخاب کنید.",
+  "pay_buttons": [
+    [
+      {
+        "text": "💳 کارت‌به‌کارت (تایید تا 5 دقیقه)",
+        "callback_data": "cart_to_offline"
+      }
+    ],
+    [
+      {
+        "text": "💳 کارت‌به‌کارت | بات FrenzyEx (تأیید تا 30 دقیقه)",
+        "callback_data": "iranpay2"
+      }
+    ],
+    [
+      {
+        "text": "💳 کارت‌به‌کارت | بات TetheRial (تأیید تا 30 دقیقه)",
+        "callback_data": "iranpay3"
+      }
+    ],
+    [
+      {
+        "text": "❌ بستن لیست",
+        "callback_data": "colselist"
+      }
+    ]
+  ],
+  "tetherial_url": null
+}

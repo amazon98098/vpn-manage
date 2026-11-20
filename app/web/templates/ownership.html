@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ t('ownership_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('ownership_title') }}</h1>
+    <p>{{ t('unowned_page', total=total, page=page + 1, pages=pages) }}</p>
+  </div>
+</div>
+{% if flash %}<div class="flash">{{ t('assigned') }}</div>{% endif %}
+{% if err == 'tg' %}<div class="flash err">{{ t('invalid_tg') }}</div>{% endif %}
+{% if err == 'profile' %}<div class="flash err">{{ t('profile_missing') }}</div>{% endif %}
+<section class="panel">
+  <div class="toolbar">
+    <form method="post" action="/ownership/assign" class="bulk-form" data-bulk data-bulk-field="sub_ids">
+      <input name="owner_tg" placeholder="{{ t('dest_tg') }}" required />
+      <input type="hidden" name="sub_ids" value="" />
+      <button class="btn small" type="submit">{{ t('assign_selected') }}</button>
+      <span class="muted">{{ t('tip_select_all') }}</span>
+    </form>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-col-picker data-storage-key="fx_own_cols">
+      <span class="muted">{{ t('columns') }}</span>
+      <label class="chip"><input type="checkbox" value="id" checked /> 🆔</label>
+      <label class="chip"><input type="checkbox" value="username" checked /> {{ t('col_username') }}</label>
+      <label class="chip"><input type="checkbox" value="vendor" checked /> {{ t('col_vendor') }}</label>
+      <label class="chip"><input type="checkbox" value="product" checked /> {{ t('col_product') }}</label>
+      <label class="chip"><input type="checkbox" value="status" checked /> {{ t('col_status') }}</label>
+      <label class="chip"><input type="checkbox" value="link" checked /> {{ t('col_link') }}</label>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th><input type="checkbox" data-select-all /></th>
+        <th data-col="id">🆔</th>
+        <th data-col="username">{{ t('col_username') }}</th>
+        <th data-col="vendor">{{ t('col_vendor') }}</th>
+        <th data-col="product">{{ t('col_product') }}</th>
+        <th data-col="status">{{ t('col_status') }}</th>
+        <th data-col="link">🔗</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td><input class="row-pick" type="checkbox" value="{{ it.sub.id }}" /></td>
+        <td class="mono" data-col="id">{{ it.sub.id }}</td>
+        <td class="mono" data-col="username">
+          <span class="plan-mark">{{ it.plan_icon }}</span>
+          <button type="button" class="copy-cell" data-copy="{{ it.sub.username }}" title="{{ t('copy_username') }}">{{ it.sub.username }}</button>
+          <span class="plan-mark">{{ it.plan_icon }}</span>
+        </td>
+        <td data-col="vendor"><span class="chip vendor-chip">{{ it.plan_icon }} {{ it.vendor_icon }} {{ it.vendor_key }}</span></td>
+        <td data-col="product">{{ it.plan_icon }} {{ it.sub.product_name or '—' }}</td>
+        <td data-col="status"><span class="chip">{{ it.status_icon }} {{ it.sub.status }}</span></td>
+        <td data-col="link">
+          {% if it.has_url %}
+          <button type="button" class="btn ghost small" data-copy="{{ it.url }}">📋</button>
+          {% else %}
+          <span class="muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="muted">{{ t('no_unowned') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pager">
+    {% if page > 0 %}<a class="btn ghost small" href="/ownership?page={{ page - 1 }}">{{ t('prev') }}</a>{% endif %}
+    {% if page + 1 < pages %}<a class="btn ghost small" href="/ownership?page={{ page + 1 }}">{{ t('next') }}</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

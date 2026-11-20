@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ t('customers_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('customers_title') }}</h1>
+    <p data-result-count>{{ t('profiles_page', total=total, page=page + 1, pages=pages) }}</p>
+  </div>
+</div>
+{% if flash %}<div class="flash">{{ t('updated_flash', flash=flash) }}</div>{% endif %}
+<section class="panel">
+  <div class="toolbar">
+    <form method="get" action="/customers" data-live-search data-live-target="#customers-live">
+      <input type="hidden" name="sort" value="{{ sort }}" />
+      <input type="hidden" name="direction" value="{{ direction }}" />
+      <input name="q" value="{{ q }}" placeholder="{{ t('search_customers') }}" autocomplete="off" />
+    </form>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-col-picker data-storage-key="fx_cust_cols" data-col-root="#customers-live">
+      <span class="muted">{{ t('columns') }}</span>
+      <label class="chip"><input type="checkbox" value="telegram" checked /> {{ t('telegram') }}</label>
+      <label class="chip"><input type="checkbox" value="name" checked /> {{ t('name') }}</label>
+      <label class="chip"><input type="checkbox" value="wallet" checked /> {{ t('wallet') }}</label>
+      <label class="chip"><input type="checkbox" value="services" checked /> {{ t('nav_services') }}</label>
+      <label class="chip"><input type="checkbox" value="created" checked /> {{ t('col_created') }}</label>
+    </div>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-act-picker data-storage-key="fx_cust_acts" data-act-root="#customers-live">
+      <span class="muted">{{ t('list_actions') }}</span>
+      <label class="chip"><input type="checkbox" value="open" checked /> {{ t('open') }}</label>
+      <label class="chip"><input type="checkbox" value="delete" checked /> {{ t('delete') }}</label>
+    </div>
+  </div>
+  <div class="toolbar tools-bar">
+    <form method="post" action="/customers/bulk" data-bulk class="bulk-form">
+      <input type="hidden" name="ids" value="" />
+      <input type="hidden" name="action" value="delete" />
+      <button class="btn danger small" type="submit">{{ t('delete_selected') }}</button>
+      <span class="muted">{{ t('delete_customers_hint') }}</span>
+    </form>
+  </div>
+  <div id="customers-live">
+    {% include "customers_table.html" %}
+  </div>
+</section>
+{% endblock %}

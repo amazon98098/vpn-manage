@@ -1,0 +1,172 @@
+{
+  "bot": "@Bombejokerbot",
+  "steps": [
+    {
+      "step": "wallet",
+      "message": {
+        "id": 16456,
+        "date": "2026-11-02T19:55:14+00:00",
+        "text": "🤖 اطلاعات حساب کاربری شما :\n\n🪪  آیدی عددی: 7355569488\n👤 نام: Amazon98098\n📱 شماره تماس: 🔴 ارسال نشده است 🔴\n⌚️ زمان ثبت‌نام: ۱۴۰۵/۰۳/۱۷ ۱۰:۲۳:۳۴\n💰 موجودی: 0 تومان\n🛒 تعداد سرویس‌های خریداری‌شده: 0 عدد\n📑 تعداد فاکتورهای پرداخت‌شده: 0 عدد\n🤝 تعداد زیرمجموعه‌های شما: 0 نفر\n🔖 گروه کاربری: عادی\n\n\n\n\n📆 ۱۴۰۵/۰۸/۱۱ → ⏰ ۲۳:۲۵:۱۴",
+        "buttons": [
+          [
+            {
+              "text": "💰 افزایش موجودی",
+              "callback_data": "Add_Balance"
+            }
+          ],
+          [
+            {
+              "text": "🏠 بازگشت به منوی اصلی",
+              "callback_data": "backuser"
+            }
+          ]
+        ],
+        "reply_markup_type": "ReplyInlineMarkup"
+      }
+    },
+    {
+      "step": "ask_amount",
+      "message": {
+        "id": 16456,
+        "date": "2026-11-02T19:55:14+00:00",
+        "text": "💸 مبلغ را  به تومان وارد کنید:\n✅  حداقل مبلغ 10,000 حداکثر مبلغ 3,000,000 تومان می باشد",
+        "buttons": [
+          [
+            {
+              "text": "↪️ بازگشت",
+              "callback_data": "account"
+            }
+          ]
+        ],
+        "reply_markup_type": "ReplyInlineMarkup"
+      }
+    },
+    {
+      "step": "after_amount",
+      "sent_amount": "10000",
+      "message": {
+        "id": 16458,
+        "date": "2026-11-02T19:55:42+00:00",
+        "text": "💵 روش پرداخت خود را انتخاب نمایید",
+        "buttons": [
+          [
+            {
+              "text": "💳 کارت به کارت",
+              "callback_data": "cart_to_offline"
+            }
+          ],
+          [
+            {
+              "text": "❌ بستن لیست",
+              "callback_data": "colselist"
+            }
+          ]
+        ],
+        "reply_markup_type": "ReplyInlineMarkup"
+      }
+    },
+    {
+      "step": "pay_extract",
+      "cards": [],
+      "amounts": [],
+      "urls": []
+    },
+    {
+      "step": "click_method_0",
+      "clicked": {
+        "text": "💳 کارت به کارت",
+        "callback_data": "cart_to_offline"
+      }
+    },
+    {
+      "step": "method_result_0",
+      "message": {
+        "id": 16448,
+        "date": "2026-11-02T19:53:36+00:00",
+        "text": "📌 عبارت جستجو را ارسال کنید\n\n🔍 جستجو بر اساس: نام کاربری، توضیحات، حجم و زمان سرویس",
+        "buttons": [
+          [
+            {
+              "text": "🏠 بازگشت به منوی اصلی"
+            }
+          ]
+        ],
+        "reply_markup_type": "ReplyKeyboardMarkup"
+      }
+    },
+    {
+      "step": "method_extract_0",
+      "cards": [],
+      "amounts": [],
+      "urls": []
+    },
+    {
+      "step": "final_pre_transfer_screen",
+      "message": {
+        "id": 16448,
+        "date": "2026-11-02T19:53:36+00:00",
+        "text": "📌 عبارت جستجو را ارسال کنید\n\n🔍 جستجو بر اساس: نام کاربری، توضیحات، حجم و زمان سرویس",
+        "buttons": [
+          [
+            {
+              "text": "🏠 بازگشت به منوی اصلی"
+            }
+          ]
+        ],
+        "reply_markup_type": "ReplyKeyboardMarkup"
+      }
+    },
+    {
+      "step": "cancelled_reply",
+      "clicked": "🏠 بازگشت به منوی اصلی",
+      "message": {
+        "id": 16461,
+        "date": "2026-11-02T19:56:12+00:00",
+        "text": "↖️ به صفحه اصلی بازگشتید :",
+        "buttons": [
+          [
+            {
+              "text": "🔐 خرید اشتراک"
+            },
+            {
+              "text": "♻️ تمدید سرویس"
+            }
+          ],
+          [
+            {
+              "text": "تست رایگان🎁"
+            },
+            {
+              "text": "🎲 گردونه شانس"
+            }
+          ],
+          [
+            {
+              "text": "🛍 مشاهده سرویس های خریداری شده من"
+            },
+            {
+              "text": "🏦 کیف پول + شارژ"
+            }
+          ],
+          [
+            {
+              "text": "👥 زیر مجموعه گیری"
+            },
+            {
+              "text": "💰 تعرفه اشتراک ها"
+            }
+          ],
+          [
+            {
+              "text": "👨‍💻پشتیبانی"
+            },
+            {
+              "text": "📚 آموزش"
+            }
+          ]
+        ],
+        "reply_markup_type": "ReplyKeyboardMarkup"
+      }
+    }
+  ]
+}

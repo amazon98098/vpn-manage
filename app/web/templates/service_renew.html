@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ t('renew_service_title') }} · {{ sub.username }}{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('renew_service_title') }}</h1>
+    <p class="mono username-ltr" dir="ltr">
+      <span class="plan-mark">{{ plan_icon }}</span>
+      {{ sub.username }}
+      {% if vendor %}
+      · <span class="chip vendor-chip">{{ vendor.key | vendor_icon }} {{ vendor.name }}</span>
+      {% endif %}
+      · <span class="chip">{{ t('renew_family_' + renew_family) }}</span>
+    </p>
+  </div>
+  <div class="top-actions">
+    <a class="btn ghost" href="/services/{{ sub.id }}">{{ t('back') }}</a>
+  </div>
+</div>
+{% if err == 'busy' %}<div class="flash err">{{ t('renew_err_busy') }}</div>
+{% elif err == 'plan' %}<div class="flash err">{{ t('renew_err_plan') }}</div>
+{% elif err == 'family' %}<div class="flash err">{{ t('renew_err_family') }}</div>
+{% elif err %}<div class="flash err">{{ t('renew_failed') }}</div>{% endif %}
+{% if busy %}<div class="flash err">{{ t('renew_err_busy') }}</div>{% endif %}
+<section class="panel panel-narrow">
+  <form class="form-stack" method="post" action="/services/{{ sub.id }}/renew">
+    <div>
+      <div class="muted small" style="margin-bottom:0.5rem">{{ t('renew_pick') }}</div>
+      <p class="muted small">{{ t('renew_family_hint') }}</p>
+      <div class="plan-pick">
+        <label class="plan-card">
+          <input type="radio" name="choice" value="current" checked />
+          <span class="plan-card-body">
+            <span class="plan-card-title">♻️ {{ t('renew_mode_current') }}</span>
+            {% if current_plan %}
+            <span class="plan-card-meta muted">
+              {{ current_plan.plan_icon }} {{ current_plan.title }}
+              {% if current_plan.traffic_gb %} · {{ current_plan.traffic_gb|int }} GB{% endif %}
+            </span>
+            <span class="plan-card-price mono num-cell">{{ current_plan.price_toman | toman }}</span>
+            {% else %}
+            <span class="plan-card-meta muted">{{ t('renew_current_no_match') }}</span>
+            {% endif %}
+          </span>
+        </label>
+        {% for p in plans %}
+        <label class="plan-card {% if not p.compatible %}plan-card-disabled{% endif %}">
+          <input type="radio" name="choice" value="{{ p.id }}" {% if not p.compatible %}disabled{% endif %} />
+          <span class="plan-card-body">
+            <span class="plan-card-title">{{ p.plan_icon }} {{ p.vendor_icon }} {{ p.title }}</span>
+            <span class="plan-card-meta muted">
+              {% if p.traffic_gb %}{{ p.traffic_gb|int }} GB{% endif %}
+              {% if p.duration_days and p.duration_days > 0 %} · {{ p.duration_days }}d{% else %} · ∞{% endif %}
+              · {{ p.vendor_key }}
+            </span>
+            <span class="plan-card-price mono num-cell">{{ p.price_toman | toman }}</span>
+            {% if not p.compatible %}
+            <span class="plan-card-lock muted small">{{ t('renew_other_family_locked') }}</span>
+            {% endif %}
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      {% if not plans %}
+      <p class="muted small">{{ t('no_enabled_plans') }}</p>
+      {% endif %}
+    </div>
+    <p class="muted small">{{ t('renew_queue_note') }}</p>
+    <button class="btn" type="submit" {% if busy %}disabled{% endif %}>{{ t('queue_renew') }}</button>
+  </form>
+</section>
+{% endblock %}

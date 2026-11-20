@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ sub.username }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1 class="mono">
+      <span class="plan-mark">{{ plan_icon }}</span>
+      <button type="button" class="copy-cell" data-copy="{{ sub.username }}" title="{{ t('copy_username') }}">{{ sub.username }}</button>
+      <span class="plan-mark">{{ plan_icon }}</span>
+    </h1>
+    <p>
+      {% if vendor %}
+      <span class="chip vendor-chip">{{ plan_icon }} {{ vendor.key | vendor_icon }} {{ vendor.name }}</span>
+      · {{ vendor.key }}
+      {% else %}{{ t('no_vendor') }}{% endif %}
+      · <span class="chip {% if sub.status == 'active' %}ok{% elif sub.status in ['warning','volume_exhausted'] %}warn{% else %}bad{% endif %}">{{ status_icon }} {{ sub.status }}</span>
+    </p>
+  </div>
+  <div class="top-actions">
+    <a class="btn" href="/services/{{ sub.id }}/renew">{{ t('btn_renew') }}</a>
+    {% if has_url %}
+    <button type="button" class="btn ghost" data-copy="{{ sub.subscription_url }}">{{ t('copy_link') }}</button>
+    <form method="post" action="/services/{{ sub.id }}/refresh-url">
+      <button class="btn ghost" type="submit">{{ t('refresh_url') }}</button>
+    </form>
+    {% endif %}
+    <form method="post" action="/services/{{ sub.id }}/refresh-vendor">
+      <button class="btn ghost" type="submit">{{ t('refresh_vendor') }}</button>
+    </form>
+    <form method="post" action="/services/{{ sub.id }}/unlink" onsubmit="return confirm({{ t('unlink_confirm')|tojson }});">
+      <button class="btn ghost" type="submit">{{ t('unlink_owner') }}</button>
+    </form>
+    <a class="btn ghost" href="/services">{{ t('back') }}</a>
+  </div>
+</div>
+{% if flash %}<div class="flash">{{ t('saved_flash', flash=flash) }}</div>{% endif %}
+<div class="grid-2">
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('edit_service') }}</strong></div>
+    <form class="form-stack" method="post" action="/services/{{ sub.id }}/save">
+      <label>{{ t('product_name') }}<input name="product_name" value="{{ sub.product_name or '' }}" /></label>
+      <label>{{ t('col_status') }}
+        <select name="status">
+          {% for st in ['active','warning','volume_exhausted','expired','disabled','unknown'] %}
+          <option value="{{ st }}" {% if sub.status == st %}selected{% endif %}>{{ st | status_icon }} {{ st }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>{{ t('owner_tg') }}<input name="owner_tg" value="{{ owner or '' }}" placeholder="assign / reassign" /></label>
+      <label class="chip"><input type="checkbox" name="clear_owner" /> {{ t('clear_owner_save') }}</label>
+      <label>{{ t('subscription_url') }}
+        <textarea name="subscription_url" rows="3">{{ sub.subscription_url or '' }}</textarea>
+      </label>
+      {% if has_url %}
+      <div class="row-actions">
+        <button type="button" class="btn ghost small" data-copy="{{ sub.subscription_url }}">{{ t('copy_current_link') }}</button>
+      </div>
+      {% endif %}
+      <button class="btn" type="submit">{{ t('save') }}</button>
+    </form>
+  </section>
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('facts') }}</strong></div>
+    <table>
+      <tbody>
+        <tr><th>🆔 ID</th><td class="mono">{{ sub.id }}</td></tr>
+        <tr><th>{{ t('col_created') }}</th><td class="mono muted">{% if sub.created_at %}{{ sub.created_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td></tr>
+        <tr><th>{{ t('vendor_service_id') }}</th><td class="mono">{{ sub.vendor_service_id or '—' }}</td></tr>
+        <tr><th>{{ t('product') }}</th><td>{{ plan_icon }} {{ sub.product_name or '—' }}</td></tr>
+        <tr><th>{{ t('remaining') }}</th><td class="mono">{{ sub.remaining_traffic_mb | traffic }}</td></tr>
+        <tr><th>{{ t('used') }}</th><td class="mono">{{ sub.used_traffic_mb | traffic }}</td></tr>
+        <tr><th>{{ t('limit') }}</th><td class="mono">{{ sub.traffic_limit_mb | traffic }}</td></tr>
+        <tr><th>{{ t('col_remain_days') }}</th><td class="mono">{{ sub.expiration_date | remain_days }}</td></tr>
+        <tr><th>{{ t('expiration') }}</th><td class="mono muted">{% if sub.expiration_date %}{{ sub.expiration_date }}{% else %}{{ t('unlimited_null') }}{% endif %}</td></tr>
+        <tr><th>{{ t('refresh_strategy') }}</th><td>{{ vendor.info_refresh_strategy if vendor else '—' }}</td></tr>
+        <tr><th>{{ t('link') }}</th><td>{% if has_url %}<span class="chip ok">{{ t('link_set') }}</span>{% else %}<span class="muted">{{ t('link_missing') }}</span>{% endif %}</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+---
+description: Shared development standards for this project
+alwaysApply: true
+---
+
+# Shared Development Standards
+
+- Inspect only the files and code paths relevant to the task before editing.
+- Understand existing architecture and conventions; reuse existing code where appropriate.
+- Prefer targeted searches and concise command output. Do not reread or rescan content unnecessarily.
+- Do not sacrifice correctness or necessary investigation merely to reduce token usage.
+- Keep changes focused. Avoid unrelated refactoring, speculative abstractions, and unnecessary dependencies.
+- Identify root causes before fixing bugs; do not guess missing business rules, API behavior, or configuration.
+- Preserve existing behavior unless the task explicitly requires changing it.
+- Never overwrite, delete, or migrate user data or important files without clear authorization.
+- Never expose secrets, credentials, API keys, or tokens.
+- Run relevant checks or tests when available. Never claim a check passed unless it was actually run.
+- If a missing detail could cause a risky or irreversible change, ask before proceeding.
+- At completion, briefly report what changed, files modified, checks performed, and remaining blockers.

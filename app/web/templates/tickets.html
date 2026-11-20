@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ t('tickets_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('tickets_title') }}</h1>
+    <p>{{ t('threads_page', total=total, page=page + 1, pages=pages) }}</p>
+  </div>
+</div>
+{% if flash %}<div class="flash">{{ t('updated_flash', flash=flash) }}</div>{% endif %}
+<section class="panel">
+  <div class="toolbar">
+    <form method="get" action="/tickets">
+      <select name="status_f">
+        <option value="">{{ t('all_openish') }}</option>
+        {% for st in ['open','awaiting_admin','awaiting_customer','closed'] %}
+        <option value="{{ st }}" {% if status_f == st %}selected{% endif %}>{{ st }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn small" type="submit">{{ t('filter') }}</button>
+    </form>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-col-picker data-storage-key="fx_tix_cols">
+      <span class="muted">{{ t('columns') }}</span>
+      <label class="chip"><input type="checkbox" value="id" checked /> 🆔</label>
+      <label class="chip"><input type="checkbox" value="customer" checked /> {{ t('customer') }}</label>
+      <label class="chip"><input type="checkbox" value="kind" checked /> {{ t('kind') }}</label>
+      <label class="chip"><input type="checkbox" value="status" checked /> {{ t('status') }}</label>
+      <label class="chip"><input type="checkbox" value="subject" checked /> {{ t('subject') }}</label>
+      <label class="chip"><input type="checkbox" value="updated" checked /> {{ t('updated_at') }}</label>
+    </div>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-act-picker data-storage-key="fx_tix_acts">
+      <span class="muted">{{ t('list_actions') }}</span>
+      <label class="chip"><input type="checkbox" value="open" checked /> {{ t('open') }}</label>
+    </div>
+  </div>
+  <div class="toolbar tools-bar">
+    <form method="post" action="/tickets/bulk" data-bulk class="bulk-form">
+      <input type="hidden" name="ids" value="" />
+      <select name="action">
+        <option value="close">{{ t('close_selected') }}</option>
+        <option value="hide">{{ t('hide_admin') }}</option>
+      </select>
+      <button class="btn small" type="submit">{{ t('run') }}</button>
+    </form>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th><input type="checkbox" data-select-all /></th>
+        <th data-col="id">🆔</th>
+        <th data-col="customer">{{ t('customer') }}</th>
+        <th data-col="kind">{{ t('kind') }}</th>
+        <th data-col="status">📡 {{ t('status') }}</th>
+        <th data-col="subject">{{ t('subject') }}</th>
+        <th data-col="updated">{{ t('updated_at') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ticket in rows %}
+      <tr>
+        <td><input class="row-pick" type="checkbox" value="{{ ticket.id }}" /></td>
+        <td class="mono" data-col="id"><button type="button" class="copy-cell" data-copy="{{ ticket.id }}" title="{{ t('copy_id') }}">{{ ticket.id }}</button></td>
+        <td class="mono" data-col="customer"><button type="button" class="copy-cell" data-copy="{{ ticket.telegram_id }}" title="{{ t('copy_id') }}">{{ ticket.telegram_id }}</button></td>
+        <td data-col="kind">{{ ticket.kind }}</td>
+        <td data-col="status"><span class="chip">{{ ticket.status }}</span></td>
+        <td data-col="subject">{{ ticket.subject or '—' }}</td>
+        <td class="mono muted" data-col="updated">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') if ticket.updated_at else '—' }}</td>
+        <td><a class="btn ghost small" data-act="open" href="/tickets/{{ ticket.id }}">{{ t('open') }}</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="muted">{{ t('no_tickets') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pager">
+    {% if page > 0 %}<a class="btn ghost small" href="/tickets?status_f={{ status_f }}&page={{ page - 1 }}">{{ t('prev') }}</a>{% endif %}
+    <span class="muted">{{ t('page_of', page=page + 1, pages=pages) }}</span>
+    {% if page + 1 < pages %}<a class="btn ghost small" href="/tickets?status_f={{ status_f }}&page={{ page + 1 }}">{{ t('next') }}</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

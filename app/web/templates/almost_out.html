@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% from "_flash.html" import render as flash_box %}
+{% block title %}{{ t('almost_out_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('almost_out_title') }}</h1>
+    <p>{{ t('almost_out_lead', days=days_th, traffic=traffic_th | traffic) }}</p>
+    <p class="muted small">{{ t('almost_out_auto_scan', seconds=life_scan) }}</p>
+  </div>
+  <div class="top-actions">
+    <form method="post" action="/almost-out/check" onsubmit="return confirm({{ t('almost_out_check_confirm')|tojson }});">
+      <button class="btn small" type="submit">{{ t('almost_out_check_all') }}</button>
+    </form>
+    <form method="post" action="/almost-out/check-renewed" class="inline-form" onsubmit="return confirm({{ t('warnings_check_renewed_confirm')|tojson }});">
+      <button class="btn ghost small" type="submit">{{ t('warnings_check_renewed') }}</button>
+    </form>
+    <a class="btn ghost small" href="/warnings">{{ t('nav_warnings') }}</a>
+    <form method="post" action="/almost-out/clear-hidden">
+      <button class="btn ghost small" type="submit">{{ t('unhide_all_almost') }}</button>
+    </form>
+  </div>
+</div>
+{% if flash %}{{ flash_box(t('updated_flash', flash=flash)) }}{% endif %}
+<section class="panel">
+  <div class="toolbar">
+    <form method="get" action="/almost-out">
+      <input name="q" value="{{ q }}" placeholder="{{ t('search_almost_out') }}" />
+      <select name="reason_f">
+        <option value="">{{ t('reason_all') }}</option>
+        <option value="days" {% if reason_f == 'days' %}selected{% endif %}>{{ t('reason_days') }}</option>
+        <option value="traffic" {% if reason_f == 'traffic' %}selected{% endif %}>{{ t('reason_traffic') }}</option>
+        <option value="expired" {% if reason_f == 'expired' %}selected{% endif %}>{{ t('reason_expired') }}</option>
+      </select>
+      <input type="hidden" name="sort" value="{{ sort }}" />
+      <input type="hidden" name="direction" value="{{ direction }}" />
+      <button class="btn small" type="submit">{{ t('filter') }}</button>
+    </form>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-col-picker data-storage-key="fx_almost_cols">
+      <span class="muted">{{ t('columns') }}</span>
+      <label class="chip"><input type="checkbox" value="username" checked /> {{ t('col_username') }}</label>
+      <label class="chip"><input type="checkbox" value="status" checked /> {{ t('col_status') }}</label>
+      <label class="chip"><input type="checkbox" value="reasons" checked /> {{ t('reasons_col') }}</label>
+      <label class="chip"><input type="checkbox" value="remain" checked /> {{ t('col_remain') }}</label>
+      <label class="chip"><input type="checkbox" value="expire" checked /> {{ t('col_remain_days') }}</label>
+      <label class="chip"><input type="checkbox" value="owner" checked /> {{ t('col_owner') }}</label>
+    </div>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-act-picker data-storage-key="fx_almost_acts">
+      <span class="muted">{{ t('list_actions') }}</span>
+      <label class="chip"><input type="checkbox" value="renew" checked /> {{ t('btn_renew') }}</label>
+      <label class="chip"><input type="checkbox" value="open" checked /> {{ t('open') }}</label>
+      <label class="chip"><input type="checkbox" value="refresh_url" checked /> {{ t('refresh_url') }}</label>
+      <label class="chip"><input type="checkbox" value="hide" checked /> {{ t('hide_almost') }}</label>
+      <label class="chip"><input type="checkbox" value="mark_active" checked /> {{ t('mark_active') }}</label>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th data-act="renew">{{ t('col_actions') }}</th>
+        <th data-col="username"><a class="sort" href="/almost-out?q={{ q }}&reason_f={{ reason_f }}&sort=username&direction={% if sort == 'username' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_username') }}{% if sort == 'username' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+        <th data-col="status"><a class="sort" href="/almost-out?q={{ q }}&reason_f={{ reason_f }}&sort=status&direction={% if sort == 'status' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_status') }}{% if sort == 'status' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+        <th data-col="reasons"><a class="sort" href="/almost-out?q={{ q }}&reason_f={{ reason_f }}&sort=reasons&direction={% if sort == 'reasons' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('reasons_col') }}{% if sort == 'reasons' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+        <th data-col="remain"><a class="sort" href="/almost-out?q={{ q }}&reason_f={{ reason_f }}&sort=remain&direction={% if sort == 'remain' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_remain') }}{% if sort == 'remain' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+        <th data-col="expire"><a class="sort" href="/almost-out?q={{ q }}&reason_f={{ reason_f }}&sort=expire&direction={% if sort == 'expire' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_remain_days') }}{% if sort == 'expire' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+        <th data-col="owner"><a class="sort" href="/almost-out?q={{ q }}&reason_f={{ reason_f }}&sort=owner&direction={% if sort == 'owner' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('col_owner') }}{% if sort == 'owner' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td class="row-actions actions-first" data-act="renew">
+          <a class="btn small" href="/services/{{ it.sub.id }}/renew">{{ t('btn_renew') }}</a>
+        </td>
+        <td class="mono num-cell username-ltr" dir="ltr" data-col="username">
+          <span class="plan-mark">{{ it.plan_icon }}</span>
+          <button type="button" class="copy-cell" data-copy="{{ it.sub.username }}" title="{{ t('copy_username') }}">{{ it.sub.username }}</button>
+        </td>
+        <td data-col="status"><span class="chip warn">{{ it.status_icon }} {{ it.sub.status }}</span></td>
+        <td class="mono" data-col="reasons">{{ ', '.join(it.reasons) }}</td>
+        <td class="mono num-cell" data-col="remain">{{ it.sub.remaining_traffic_mb | traffic }}</td>
+        <td class="mono num-cell" data-col="expire">{{ it.sub.expiration_date | remain_days }}</td>
+        <td class="mono num-cell" data-col="owner">{% if it.owner %}<button type="button" class="copy-cell" data-copy="{{ it.owner }}" title="{{ t('copy_id') }}">{{ it.owner }}</button>{% else %}—{% endif %}</td>
+        <td class="row-actions">
+          <a class="btn ghost small" data-act="open" href="/services/{{ it.sub.id }}">{{ t('open') }}</a>
+          {% if it.has_url %}
+          <form method="post" action="/almost-out/{{ it.sub.id }}/refresh-url" class="inline-form" data-act="refresh_url">
+            <input type="hidden" name="q" value="{{ q }}" />
+            <input type="hidden" name="reason_f" value="{{ reason_f }}" />
+            <input type="hidden" name="page" value="{{ page }}" />
+            <input type="hidden" name="sort" value="{{ sort }}" />
+            <input type="hidden" name="direction" value="{{ direction }}" />
+            <button class="btn ghost small" type="submit">{{ t('refresh_url') }}</button>
+          </form>
+          {% endif %}
+          <form method="post" action="/almost-out/{{ it.sub.id }}/hide" class="inline-form" data-act="hide">
+            <input type="hidden" name="q" value="{{ q }}" />
+            <input type="hidden" name="reason_f" value="{{ reason_f }}" />
+            <input type="hidden" name="page" value="{{ page }}" />
+            <input type="hidden" name="sort" value="{{ sort }}" />
+            <input type="hidden" name="direction" value="{{ direction }}" />
+            <button class="btn ghost small" type="submit">{{ t('hide_almost') }}</button>
+          </form>
+          <form method="post" action="/almost-out/{{ it.sub.id }}/mark-active" class="inline-form" data-act="mark_active">
+            <input type="hidden" name="q" value="{{ q }}" />
+            <input type="hidden" name="reason_f" value="{{ reason_f }}" />
+            <input type="hidden" name="page" value="{{ page }}" />
+            <input type="hidden" name="sort" value="{{ sort }}" />
+            <input type="hidden" name="direction" value="{{ direction }}" />
+            <button class="btn ghost small" type="submit">{{ t('mark_active') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="muted">{{ t('no_rows') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pager">
+    {% if page > 0 %}<a class="btn ghost small" href="/almost-out?q={{ q }}&reason_f={{ reason_f }}&sort={{ sort }}&direction={{ direction }}&page={{ page - 1 }}">{{ t('prev') }}</a>{% endif %}
+    <span class="muted">{{ t('page_of', page=page + 1, pages=pages) }} · {{ total }}</span>
+    {% if page + 1 < pages %}<a class="btn ghost small" href="/almost-out?q={{ q }}&reason_f={{ reason_f }}&sort={{ sort }}&direction={{ direction }}&page={{ page + 1 }}">{{ t('next') }}</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

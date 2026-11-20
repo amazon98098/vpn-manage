@@ -1,0 +1,165 @@
+{
+  "steps": [
+    {
+      "name": "start",
+      "text": "سلام خوش آمدید🌹\n❗️هشدار: تبلیغات بالای بات👆 مربوط به تلگرامه نه ما و غالباَ هم کلاهبرداریست\n\nسرویس vpn مناسب انواع هوش ‌مصنوعی و سایتای تحریمی👇\nفاقد تضمین اتصال در شرایط جنگی❗️\n\nپشتیبانی 🤗 @FineArtSupport",
+      "buttons": [
+        [
+          {
+            "text": "🔐 خرید اشتراک",
+            "callback_data": "buy"
+          }
+        ],
+        [
+          {
+            "text": "🛍 سرویس‌های من (تمدید و...)",
+            "callback_data": "backorder"
+          }
+        ],
+        [
+          {
+            "text": "💰کیف پول",
+            "callback_data": "account"
+          }
+        ],
+        [
+          {
+            "text": "📚 آموزش",
+            "callback_data": "helpbtns"
+          }
+        ],
+        [
+          {
+            "text": "☎️ پشتیبانی",
+            "callback_data": "supportbtns"
+          }
+        ]
+      ]
+    },
+    {
+      "name": "buy_root",
+      "text": "🛍 لطفاً سرویسی که می‌خواهید خریداری کنید را انتخاب کنید:",
+      "buttons": [
+        [
+          {
+            "text": "🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت",
+            "callback_data": "prodcutservices_8690"
+          }
+        ],
+        [
+          {
+            "text": "🔷100 گیگ حجمی🔹کاربر و زمان نامحدود🔹696 ت",
+            "callback_data": "prodcutservices_9abb"
+          }
+        ],
+        [
+          {
+            "text": "🔷200 گیگ حجمی🔹کاربر و زمان نامحدود🔹1.380 ت",
+            "callback_data": "prodcutservices_9e3f"
+          }
+        ],
+        [
+          {
+            "text": "↪️ بازگشت",
+            "callback_data": "backuser"
+          }
+        ]
+      ]
+    },
+    {
+      "name": "hajmi",
+      "text": "يک نام کاربري دلخواه ارسال کنيد\n⚠️ نام کاربری باید بدون کاراکترهای اضافه مانند @ ، فاصله ، خط تیره باشد. \n⚠️ نام کاربری باید انگلیسی باشد.\n✅ نام کاربری های صحیح  : ali12  | mahdi  | ws1_ksdf\n❌  نام کاربری های نادرست :   ali_ |  tele@  |  _mahdi | محسن",
+      "buttons": [
+        [
+          {
+            "text": "🎲 انتخاب تصادفی",
+            "callback_data": "random_username"
+          }
+        ],
+        [
+          {
+            "text": "🏠 بازگشت به منوی قبل",
+            "callback_data": "back_product"
+          }
+        ]
+      ]
+    },
+    {
+      "name": "buy_again",
+      "text": "🛍 لطفاً سرویسی که می‌خواهید خریداری کنید را انتخاب کنید:",
+      "buttons": [
+        [
+          {
+            "text": "🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت",
+            "callback_data": "prodcutservices_8690"
+          }
+        ],
+        [
+          {
+            "text": "🔷100 گیگ حجمی🔹کاربر و زمان نامحدود🔹696 ت",
+            "callback_data": "prodcutservices_9abb"
+          }
+        ],
+        [
+          {
+            "text": "🔷200 گیگ حجمی🔹کاربر و زمان نامحدود🔹1.380 ت",
+            "callback_data": "prodcutservices_9e3f"
+          }
+        ],
+        [
+          {
+            "text": "↪️ بازگشت",
+            "callback_data": "backuser"
+          }
+        ]
+      ]
+    },
+    {
+      "name": "catalog_final",
+      "text": "يک نام کاربري دلخواه ارسال کنيد\n⚠️ نام کاربری باید بدون کاراکترهای اضافه مانند @ ، فاصله ، خط تیره باشد. \n⚠️ نام کاربری باید انگلیسی باشد.\n✅ نام کاربری های صحیح  : ali12  | mahdi  | ws1_ksdf\n❌  نام کاربری های نادرست :   ali_ |  tele@  |  _mahdi | محسن",
+      "buttons": [
+        [
+          {
+            "text": "🎲 انتخاب تصادفی",
+            "callback_data": "random_username"
+          }
+        ],
+        [
+          {
+            "text": "🏠 بازگشت به منوی قبل",
+            "callback_data": "back_product"
+          }
+        ]
+      ]
+    },
+    {
+      "name": "pick_first",
+      "text": "❗️ فاقد تضمینِ اتصال در شرایط جنگی یا نت داخلی\n\n📇 پیش فاکتور شما:\n👤 نام کاربری:  9206910824_2723\n🔐 نام سرویس: 🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت\n📆 مدت اعتبار: نامحدود\n💶 قیمت:  360000 تومان\n👥 حجم اکانت: 50 گیگ\n🗒 یادداشت محصول : \n💵 موجودی کیف پول شما : 0\n          \n💰 سفارش شما آماده پرداخت است",
+      "buttons": [
+        [
+          {
+            "text": "💰 پرداخت و دریافت سرویس",
+            "callback_data": "confirmandgetservice"
+          }
+        ],
+        [
+          {
+            "text": "🏷 اعمال کد تخفیف",
+            "callback_data": "get_discount_code"
+          }
+        ],
+        [
+          {
+            "text": "🏠 بازگشت به منوی اصلی",
+            "callback_data": "back_product"
+          }
+        ]
+      ],
+      "btn": {
+        "text": "🎲 انتخاب تصادفی",
+        "callback_data": "random_username"
+      }
+    }
+  ],
+  "tetherial_recent": []
+}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ t('overview_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('overview_title') }}</h1>
+    <p>{{ t('overview_lead') }}</p>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="k">{{ t('stat_customers') }}</div><div class="v">{{ customers }}</div></div>
+  <div class="stat"><div class="k">{{ t('stat_open_orders') }}</div><div class="v">{{ open_orders }}</div></div>
+  <div class="stat"><div class="k">{{ t('stat_active_queue') }}</div><div class="v">{{ active_jobs }}</div></div>
+  <div class="stat"><div class="k">{{ t('stat_unowned') }}</div><div class="v">{{ unlinked }}</div></div>
+</div>
+
+<div class="grid-2">
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('inventory_by_status') }}</strong></div>
+    <table>
+      <thead><tr><th>{{ t('status') }}</th><th>{{ t('count') }}</th></tr></thead>
+      <tbody>
+        {% for st, n in by_status.items() %}
+        <tr><td>{{ st | status_icon }} {{ st }}</td><td class="mono">{{ n }}</td></tr>
+        {% else %}
+        <tr><td colspan="2" class="muted">{{ t('no_rows') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="panel">
+    <div class="toolbar">
+      <strong>{{ t('vendors_heading') }}</strong>
+      <a class="chip" href="/warnings">{{ t('nav_warnings') }}: {{ warnings_n }}</a>
+      <a class="chip" href="/almost-out">{{ t('almost_out') }}: {{ almost }}</a>
+      <a class="btn ghost small" href="/warnings">{{ t('nav_warnings') }}</a>
+      <a class="btn ghost small" href="/almost-out">{{ t('nav_almost_out') }}</a>
+    </div>
+    <table>
+      <thead><tr><th>{{ t('vendor') }}</th><th>{{ t('services') }}</th></tr></thead>
+      <tbody>
+        {% for row in vendor_counts %}
+        <tr>
+          <td>{{ row.key | vendor_icon }} {{ row.name }} <span class="chip">{{ row.key }}</span></td>
+          <td class="mono">{{ row.n }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

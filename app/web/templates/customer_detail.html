@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.telegram_id }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1 class="mono">👤 <button type="button" class="copy-cell" data-copy="{{ profile.telegram_id }}" title="{{ t('copy_id') }}">{{ profile.telegram_id }}</button></h1>
+    <p>{{ profile.full_name or profile.username or 'Customer' }} · 💰 {{ t('wallet') }} {{ (profile.wallet_toman or 0) | toman }} تومان{% if profile.created_at %} · {{ t('col_created') }} {{ profile.created_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}</p>
+  </div>
+  <div class="top-actions">
+    <form method="post" action="/customers/{{ profile.telegram_id }}/delete" onsubmit="return confirm({{ t('delete_customer_confirm')|tojson }});">
+      <button class="btn danger" type="submit">{{ t('delete_customer') }}</button>
+    </form>
+    <a class="btn ghost" href="/customers">{{ t('back') }}</a>
+  </div>
+</div>
+{% if flash %}<div class="flash">{{ t('updated') }}</div>{% endif %}
+<div class="grid-2">
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('owned_services') }}</strong></div>
+    <table>
+      <thead><tr><th>{{ t('col_username') }}</th><th>{{ t('link_id') }}</th></tr></thead>
+      <tbody>
+        {% for link in links %}
+        <tr>
+          <td class="mono">
+            <button type="button" class="copy-cell" data-copy="{{ link.service_username }}" title="{{ t('copy_username') }}">{{ link.service_username }}</button>
+            {% if link.subscription_id %}
+            <a class="btn ghost small" href="/services/{{ link.subscription_id }}">↗</a>
+            {% endif %}
+          </td>
+          <td class="mono muted">{{ link.id }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="2" class="muted">{{ t('no_services') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('adjust_wallet') }}</strong></div>
+    <form class="form-stack" method="post" action="/customers/{{ profile.telegram_id }}/wallet">
+      <label>{{ t('amount_toman') }}<input type="number" name="amount" required /></label>
+      <label>{{ t('note') }}<input name="note" value="web_adjust" /></label>
+      <button class="btn" type="submit">{{ t('apply') }}</button>
+    </form>
+  </section>
+</div>
+<section class="panel stack-gap">
+  <div class="toolbar"><strong>{{ t('recent_orders') }}</strong></div>
+  <table>
+    <thead><tr><th>ID</th><th>{{ t('kind') }}</th><th>{{ t('service') }}</th><th>{{ t('status') }}</th><th>{{ t('amount') }}</th></tr></thead>
+    <tbody>
+      {% for o in orders %}
+      <tr>
+        <td class="mono">{{ o.id }}</td>
+        <td>{{ o.kind }}</td>
+        <td class="mono">{{ o.service_username }}</td>
+        <td><span class="chip">{{ o.status }}</span></td>
+        <td class="mono num-cell">{{ (o.price_toman or 0) | toman }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">{{ t('no_orders') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+<section class="panel stack-gap">
+  <div class="toolbar"><strong>{{ t('wallet_ledger') }}</strong></div>
+  <table>
+    <thead><tr><th>ID</th><th>{{ t('amount') }}</th><th>{{ t('balance') }}</th><th>{{ t('kind') }}</th><th>{{ t('note') }}</th></tr></thead>
+    <tbody>
+      {% for row in ledger %}
+      <tr>
+        <td class="mono">{{ row.id }}</td>
+        <td class="mono num-cell">{{ (row.amount_toman or 0) | toman }}</td>
+        <td class="mono num-cell">{{ (row.balance_after or 0) | toman }}</td>
+        <td>{{ row.kind }}</td>
+        <td class="muted">{{ row.note or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">{{ t('empty_ledger') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

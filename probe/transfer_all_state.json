@@ -1,0 +1,181 @@
+{
+  "dest": "9206910824",
+  "done": [
+    {
+      "username": "ali_darvishi",
+      "service_id": "b49211eb",
+      "result": "OK"
+    },
+    {
+      "username": "174_golnaz",
+      "service_id": "33f18b43",
+      "result": "OK"
+    },
+    {
+      "username": "546_aria_rastegar_2_2979",
+      "service_id": "7e92a056",
+      "result": "OK"
+    },
+    {
+      "username": "342_arezoo_rahimi_mom",
+      "service_id": "567267ed",
+      "result": "OK"
+    },
+    {
+      "username": "620_goodarzi_amlak",
+      "service_id": "f844953d",
+      "result": "OK"
+    },
+    {
+      "username": "249_nezami_aghadoost",
+      "service_id": "f5f1cefc",
+      "result": "OK"
+    },
+    {
+      "username": "249_nezami_mahjoori",
+      "service_id": "f6add66b",
+      "result": "OK"
+    },
+    {
+      "username": "697_hossein_ramezani",
+      "service_id": "09e6b04a",
+      "result": "OK"
+    },
+    {
+      "username": "373_yasna_hozhabri_dad",
+      "service_id": "0545a084",
+      "result": "OK"
+    },
+    {
+      "username": "549_hosseinabadi",
+      "service_id": "8b4380b1",
+      "result": "OK"
+    },
+    {
+      "username": "570_talebinejad",
+      "service_id": "6b1aeadc",
+      "result": "OK"
+    },
+    {
+      "username": "amz_686_dehghan",
+      "service_id": "7c9c4e08",
+      "result": "OK"
+    },
+    {
+      "username": "602_sheykha",
+      "service_id": "1138599e",
+      "result": "OK"
+    },
+    {
+      "username": "342_arezoo_rahimi_6166",
+      "service_id": "550e891f",
+      "result": "OK"
+    },
+    {
+      "username": "185_hosseinabadi_daughter",
+      "service_id": "27e987b7",
+      "result": "OK"
+    },
+    {
+      "username": "654_sharaf_lord",
+      "service_id": "0ae57daf",
+      "result": "OK"
+    },
+    {
+      "username": "199_behroozi",
+      "service_id": "d1f17a5d",
+      "result": "OK"
+    },
+    {
+      "username": "350_mosayeb_noroozi_3269",
+      "service_id": "a2f554b3",
+      "result": "OK"
+    },
+    {
+      "username": "536_amirpoor",
+      "service_id": "e58818c0",
+      "result": "OK"
+    },
+    {
+      "username": "362_sagheb",
+      "service_id": "1540cfe1",
+      "result": "OK"
+    },
+    {
+      "username": "633_nazari",
+      "service_id": "a7aa5b77",
+      "result": "OK"
+    },
+    {
+      "username": "419_dehghani_saeedi_5165",
+      "service_id": "5ee121b9",
+      "result": "OK"
+    },
+    {
+      "username": "249_nezami",
+      "service_id": "d07f912d",
+      "result": "OK"
+    },
+    {
+      "username": "508_shafeezad",
+      "service_id": "e482d870",
+      "result": "OK"
+    },
+    {
+      "username": "salman_mahmoudi",
+      "service_id": "6b122aaf",
+      "result": "OK"
+    },
+    {
+      "username": "677_niknam_wife",
+      "service_id": "aa25437b",
+      "result": "OK"
+    },
+    {
+      "username": "677_niknam",
+      "service_id": "a2985b25",
+      "result": "OK"
+    },
+    {
+      "username": "ehsan_jamshidi",
+      "service_id": "0be00ff2",
+      "result": "OK"
+    },
+    {
+      "username": "235_firoozi_mohandes",
+      "service_id": "5813c0ca",
+      "result": "OK"
+    },
+    {
+      "username": "449_zalipoor",
+      "service_id": "5ba8f6a8",
+      "result": "OK"
+    },
+    {
+      "username": "3239_negar_shirali",
+      "service_id": "2a282fb4",
+      "result": "OK"
+    }
+  ],
+  "failed": [
+    {
+      "username": "698_hashemizade",
+      "service_id": "a037e569",
+      "result": "FAIL_PROMPT"
+    },
+    {
+      "username": "353_golnaz_father",
+      "service_id": "4311d3fe",
+      "result": "FAIL_PROMPT"
+    },
+    {
+      "username": "436_hajizadeh",
+      "service_id": "7e61d8a8",
+      "result": "FAIL_PROMPT"
+    }
+  ],
+  "skipped": [],
+  "started_at": "2026-11-04T19:24:43.693274+00:00",
+  "total_found": 79,
+  "updated_at": "2026-11-04T21:06:06.388258+00:00"
+}

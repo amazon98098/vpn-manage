@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_flash.html" import render as flash_box %}
+{% block title %}{{ t('vendors_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('vendors_title') }}</h1>
+    <p>{{ t('vendors_lead', netplus=netplus, finearts=finearts) }}</p>
+  </div>
+  <form method="post" action="/vendors/sync" onsubmit="return confirm({{ t('confirm_bulk', n=1)|tojson }});">
+    <button class="btn ghost small" type="submit">{{ t('sync_vendors') }}</button>
+  </form>
+</div>
+{% if flash == 'sync' %}{{ flash_box(t('vendor_sync_ok')) }}{% elif flash %}{{ flash_box(t('updated_flash', flash=flash)) }}{% endif %}
+{% if sync_report %}
+<div class="flash">
+  <div class="flash-body"><strong>{{ t('vendor_sync_report') }}:</strong> {{ sync_report }}</div>
+</div>
+{% endif %}
+<section class="panel">
+  <table>
+    <thead><tr><th>{{ t('name') }}</th><th>{{ t('key') }}</th><th>{{ t('nav_services') }}</th><th>{{ t('refresh') }}</th><th>{{ t('enabled') }}</th><th></th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.v.key | vendor_icon }} {{ row.v.name }}</td>
+        <td class="mono">{{ row.v.key }}</td>
+        <td class="mono">{{ row.n }}</td>
+        <td colspan="3">
+          <form method="post" action="/vendors/{{ row.v.id }}/strategy" class="row-actions">
+            <select name="info_refresh_strategy">
+              {% for s in ['automatic','subscription_url','provider_bot'] %}
+              <option value="{{ s }}" {% if row.v.info_refresh_strategy == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+            <label class="chip"><input type="checkbox" name="enabled" {% if row.v.enabled %}checked{% endif %} /> enabled</label>
+            <button class="btn small" type="submit">{{ t('save') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_flash.html" import render as flash_box %}
+{% block title %}{{ t('messages_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('messages_title') }}</h1>
+    <p>{{ t('messages_lead') }}</p>
+  </div>
+  <div class="top-actions">
+    <button class="btn" type="submit" form="messages-save-all">{{ t('save_all') }}</button>
+  </div>
+</div>
+{% if flash %}{{ flash_box(t('saved_flash', flash=flash)) }}{% endif %}
+<div class="tab-bar">
+  <a class="chip {% if tab != 'admin' %}ok{% endif %}" href="/messages?tab=customer">{{ t('messages_customer') }}</a>
+  <a class="chip {% if tab == 'admin' %}ok{% endif %}" href="/messages?tab=admin">{{ t('messages_admin') }}</a>
+</div>
+<section class="panel msg-panel">
+  <form id="messages-save-all" method="post" action="/messages/save-all">
+    <input type="hidden" name="tab" value="{{ tab }}" />
+    <div class="msg-grid">
+      {% for row in rows %}
+      <div class="msg-card">
+        <div class="msg-card-head">
+          <span class="mono muted">{{ row.key }}</span>
+        </div>
+        <textarea name="body__{{ row.key }}" rows="3" dir="rtl" class="msg-body" lang="fa">{{ row.text or '' }}</textarea>
+      </div>
+      {% else %}
+      <p class="muted">{{ t('no_rows') }}</p>
+      {% endfor %}
+    </div>
+    {% if rows %}
+    <div class="toolbar sticky-save">
+      <button class="btn" type="submit">{{ t('save_all') }}</button>
+    </div>
+    {% endif %}
+  </form>
+</section>
+{% endblock %}

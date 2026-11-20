@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ t('ticket_title', id=ticket.id) }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('ticket_title', id=ticket.id) }}</h1>
+    <p>
+      {{ t('customer') }} <a href="/customers/{{ ticket.telegram_id }}">{{ ticket.telegram_id }}</a>
+      · {{ ticket.kind }} · <span class="chip">{{ ticket.status }}</span>
+      {% if ticket.order_id %} · {{ t('order') }} #{{ ticket.order_id }}{% endif %}
+    </p>
+  </div>
+  <div class="top-actions">
+    <form method="post" action="/tickets/{{ ticket.id }}/close" onsubmit="return confirm({{ t('close_ticket_confirm')|tojson }});">
+      <button class="btn ghost" type="submit">{{ t('close_ticket') }}</button>
+    </form>
+    <a class="btn ghost" href="/tickets">{{ t('back') }}</a>
+  </div>
+</div>
+{% if flash %}<div class="flash">{{ t('updated_flash', flash=flash) }}</div>{% endif %}
+<section class="panel">
+  <div class="toolbar"><strong>{{ t('conversation') }}{% if ticket.subject %} · {{ ticket.subject }}{% endif %}</strong></div>
+  <table>
+    <thead><tr><th>{{ t('when') }}</th><th>{{ t('from') }}</th><th>{{ t('message') }}</th></tr></thead>
+    <tbody>
+      {% for m in messages %}
+      <tr>
+        <td class="mono muted">{{ m.created_at.strftime('%Y-%m-%d %H:%M') if m.created_at else '—' }}</td>
+        <td>{{ m.sender }}</td>
+        <td>{{ m.body }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="muted">{{ t('no_messages') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <form class="form-stack" method="post" action="/tickets/{{ ticket.id }}/reply">
+    <label>{{ t('reply_customer') }}<textarea name="body" rows="4" required></textarea></label>
+    <button class="btn" type="submit">{{ t('send_reply') }}</button>
+  </form>
+</section>
+{% endblock %}

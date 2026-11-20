@@ -1,0 +1,130 @@
+{
+  "vendor": "finearts",
+  "bot": "@FineArtsVPNBot",
+  "bot_id": 6538732400,
+  "probed_account": "fxoneplus",
+  "inventory_file": "probe/finearts_inventory_export.json",
+  "private_urls_file": "probe/finearts_private_urls.json",
+  "counts": {
+    "listed": 21,
+    "exported": 21,
+    "with_subscription_url": 20,
+    "traffic_ended": 1,
+    "overlap_with_netplus_db_usernames": 0,
+    "overlap_with_netplus_vendor_service_ids": 0
+  },
+  "products": [
+    {
+      "count": 17,
+      "product_raw": "🔶50 گیگ حجمی🔸کاربر و زمان نامحدود🔸360 ت",
+      "local_product_name_guess": "۵۰ گیگ یکماهه",
+      "note": "local mapper assumes monthly; FineArts product is time-unlimited volume"
+    },
+    {
+      "count": 4,
+      "product_raw": "🔷100 گیگ حجمی🔹کاربر و زمان نامحدود🔹696 ت",
+      "local_product_name_guess": "۱۰۰ گیگ یکماهه",
+      "note": "local mapper assumes monthly; FineArts product is time-unlimited volume"
+    }
+  ],
+  "field_mapping": [
+    {
+      "finearts": "list button text (username)",
+      "our_db": "subscriptions.username",
+      "ok": true
+    },
+    {
+      "finearts": "callback product_<hex>",
+      "our_db": "subscriptions.vendor_service_id",
+      "ok": true,
+      "note": "hex id after product_"
+    },
+    {
+      "finearts": "نام محصول",
+      "our_db": "subscriptions.product_name",
+      "ok": "partial",
+      "note": "store short local label; current mapper mislabels time-unlimited as یکماهه"
+    },
+    {
+      "finearts": "ترافیک / مصرفی / باقی‌مانده (GB)",
+      "our_db": "traffic_limit_mb / used_traffic_mb / remaining_traffic_mb",
+      "ok": true,
+      "note": "convert GB→MB"
+    },
+    {
+      "finearts": "تاریخ اتمام = نامحدود (0)",
+      "our_db": "expiration_date",
+      "ok": "gap",
+      "note": "no calendar expiry; need null/sentinel + UI that treats as traffic-only"
+    },
+    {
+      "finearts": "وضعیت ✅ فعال / 🚫 پایان حجم",
+      "our_db": "status active/expired",
+      "ok": true,
+      "note": "map پایان حجم → traffic-exhausted (not calendar expired)"
+    },
+    {
+      "finearts": "subscriptionurl_<id> → https://fineartsinfo.org/up/…",
+      "our_db": "subscription_url",
+      "ok": true,
+      "note": "same userinfo refresh pattern likely as NetPlus"
+    },
+    {
+      "finearts": "extend_<id> renew invoice",
+      "our_db": "renew_queue / driver.renew",
+      "ok": "adapter needed",
+      "note": "wallet/pay flow similar but separate bot UI"
+    },
+    {
+      "finearts": "updateproduct_<id>",
+      "our_db": "status refresh",
+      "ok": true
+    },
+    {
+      "finearts": "changelink_<id>",
+      "our_db": "optional rotate URL",
+      "ok": "optional"
+    },
+    {
+      "finearts": "transfer_<id>",
+      "our_db": "not in our product yet",
+      "ok": "out of scope"
+    },
+    {
+      "finearts": "vendors row",
+      "our_db": "vendors.key=finearts",
+      "ok": "missing",
+      "note": "only netplus exists today"
+    }
+  ],
+  "ui_callbacks": {
+    "menu_buy": "buy",
+    "menu_my_services": "backorder",
+    "menu_wallet": "account",
+    "list_page": "servicespage_N",
+    "list_search": "searchservice",
+    "open_service": "product_<id>",
+    "refresh_status": "updateproduct_<id>",
+    "get_sub_url": "subscriptionurl_<id>",
+    "renew": "extend_<id>"
+  },
+  "gaps_for_adapter": [
+    "Register vendors.finearts + VendorBotDriver for @FineArtsVPNBot",
+    "Inventory sync: paginate backorder / servicespage_* / product_*",
+    "Expiration: FineArts volume plans are time-unlimited — do not parse as remaining_days; keep expiration_date null or far-sentinel and rely on traffic for almost-out",
+    "product_name: add FineArts-specific short labels (e.g. ۵۰ گیگ نامحدود زمانی) instead of reusing NetPlus یکماهه mapper",
+    "Renew path: extend_<id> → invoice → wallet/pay (probe pay settle separately; NetPlus race/watermark lessons apply)",
+    "One service ended traffic had no subscription URL button path in probe — handle gracefully",
+    "Global username uniqueness already holds: 0 overlap with NetPlus inventory"
+  ],
+  "ready_to_import_fields": [
+    "username",
+    "vendor_service_id",
+    "traffic_limit_mb",
+    "used_traffic_mb",
+    "remaining_traffic_mb",
+    "subscription_url",
+    "status",
+    "product_raw (needs local label policy)"
+  ]
+}

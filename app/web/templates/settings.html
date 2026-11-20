@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ t('settings_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('settings_title') }}</h1>
+    <p>{{ t('settings_lead', provider=payment_provider) }}</p>
+  </div>
+  <div class="top-actions">
+    <button class="btn" type="submit" form="settings-save-all">{{ t('save_all') }}</button>
+  </div>
+</div>
+{% if flash %}<div class="flash">{{ t('settings_saved') }}</div>{% endif %}
+
+<form id="settings-save-all" method="post" action="/settings/save-all" class="settings-grid">
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('reseller_card') }}</strong></div>
+    <div class="form-stack">
+      <label>{{ t('card_number') }}
+        <input name="card_number" data-card-group value="{{ card_number_display }}" inputmode="numeric" autocomplete="off" placeholder="xxxx xxxx xxxx xxxx" />
+      </label>
+      <label>{{ t('card_holder') }}<input name="card_holder" value="{{ card_holder }}" /></label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('settings_wallet') }}</strong></div>
+    <p class="muted small panel-lead">{{ t('settings_wallet_lead') }}</p>
+    <div class="form-stack form-2col">
+      <label>{{ t('wallet_min') }}
+        <input name="wallet_min" type="number" min="0" value="{{ wallet_min }}" class="num-cell" />
+      </label>
+      <label>{{ t('wallet_max') }}
+        <input name="wallet_max" type="number" min="0" value="{{ wallet_max }}" class="num-cell" />
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('settings_reminders') }}</strong></div>
+    <p class="muted small panel-lead">{{ t('settings_reminders_lead') }}</p>
+    <div class="form-stack form-2col">
+      <label>{{ t('order_ttl') }}
+        <input name="order_ttl" type="number" min="60" value="{{ order_ttl }}" class="num-cell" />
+      </label>
+      <label>{{ t('reminder_delays') }}
+        <input name="reminder_delays" value="{{ reminder_delays }}" dir="ltr" placeholder="300,3600,21600" />
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('settings_userinfo_ttl') }}</strong></div>
+    <p class="muted small panel-lead">{{ t('settings_userinfo_ttl_lead') }}</p>
+    <div class="form-stack">
+      <label>{{ t('userinfo_ttl') }}
+        <input name="userinfo_ttl" type="number" min="0" value="{{ userinfo_ttl }}" class="num-cell" />
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('settings_lifecycle') }}</strong></div>
+    <p class="muted small panel-lead">{{ t('settings_lifecycle_lead') }}</p>
+    <div class="form-stack form-2col">
+      <label>{{ t('alert_days') }}
+        <input name="alert_days" type="number" min="0" value="{{ alert_days }}" class="num-cell" />
+      </label>
+      <label>{{ t('alert_traffic') }}
+        <input name="alert_traffic" type="number" min="0" step="any" value="{{ alert_traffic }}" class="num-cell" />
+      </label>
+      <label>{{ t('life_cool') }}
+        <input name="life_cool" type="number" min="60" value="{{ life_cool }}" class="num-cell" />
+      </label>
+      <label>{{ t('life_scan') }}
+        <input name="life_scan" type="number" min="60" value="{{ life_scan }}" class="num-cell" />
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('settings_admin_alerts') }}</strong></div>
+    <p class="muted small panel-lead">{{ t('settings_admin_alerts_lead') }}</p>
+    <div class="form-stack form-2col">
+      <label>{{ t('admin_alert_max_repeats') }}
+        <input name="admin_alert_max_repeats" type="number" min="1" value="{{ admin_alert_max_repeats }}" class="num-cell" />
+      </label>
+      <label>{{ t('admin_alert_window_hours') }}
+        <input name="admin_alert_window_hours" type="number" min="1" value="{{ admin_alert_window_hours }}" class="num-cell" />
+      </label>
+      <label>{{ t('admin_alert_deleted_suppress_hours') }}
+        <input name="admin_alert_deleted_suppress_hours" type="number" min="1" value="{{ admin_alert_deleted_suppress_hours }}" class="num-cell" />
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('settings_maintenance') }}</strong></div>
+    <p class="muted small panel-lead">{{ t('settings_maintenance_lead') }}</p>
+    <div class="form-stack">
+      <label class="chip check-row">
+        <input type="checkbox" name="customer_bot_enabled" value="1" {% if customer_bot_enabled %}checked{% endif %} />
+        {{ t('maintenance_enabled') }}
+      </label>
+      <label>{{ t('maintenance_message') }}
+        <textarea name="customer_bot_disabled_message" rows="4" dir="rtl">{{ customer_bot_disabled_message }}</textarea>
+      </label>
+    </div>
+  </section>
+
+  <div class="toolbar sticky-save">
+    <button class="btn" type="submit">{{ t('save_all') }}</button>
+  </div>
+</form>
+{% endblock %}

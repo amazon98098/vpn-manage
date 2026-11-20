@@ -1,0 +1,293 @@
+outcomes={"renew": 200, "create": 60, "wallet_only": 40, "receipt": 2, "none": 92}
+wallet_only: n=40 min=14s median=30s p90=66s max=249s
+create: n=60 min=15s median=39s p90=177s max=659s
+renew: n=200 min=15s median=32s p90=161s max=4482s
+
+##### PAY_INSTR 84103 2026-10-29T12:58:24+00:00
+   -73307s PAY_INSTR
+   -73275s RENEW_OK
+      -42s OUT:/services
+      -42s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -41s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+      -28s OUT:Maral
+      -27s RENEW_INVOICE
+   ------ instr ------
+      +48s RENEW_OK :: ▫️نام سرویس : maral_cafe
+     +119s OUT:/services
+     +119s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+
+##### PAY_INSTR 84149 2026-10-30T15:46:42+00:00
+      -19s OUT:yasna
+      -19s IN:❌ دستور نامعتبر است .
+      -15s OUT:/services
+      -14s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -13s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+      -11s OUT:yasna
+      -11s RENEW_INVOICE
+   ------ instr ------
+      +48s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +373s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +377s OUT:yasna
+     +377s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +513s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +515s OUT:yasna
+     +515s IN:🔗 لینک اشتراک              https://netpl
+     +708s OUT:/services
+     +708s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +711s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +713s OUT:hadi
+
+##### PAY_INSTR 84163 2026-10-30T15:58:41+00:00
+     -204s OUT:yasna
+     -204s IN:🔗 لینک اشتراک              https://netpl
+      -11s OUT:/services
+      -11s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+       -8s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+       -6s OUT:hadi
+       -6s RENEW_INVOICE
+   ------ instr ------
+      +35s RENEW_OK :: ▫️نام سرویس : 585_hadi_nozari
+      +73s OUT:/services
+      +73s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      +74s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+      +76s OUT:arezoo
+      +76s RENEW_INVOICE
+      +95s PAY_INSTR
+     +123s RENEW_OK :: ▫️نام سرویس : 342_arezoo_rahimi_mom
+     +124s OUT:/services
+     +125s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +126s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+
+##### PAY_INSTR 84171 2026-10-30T16:00:16+00:00
+      -95s PAY_INSTR
+      -60s RENEW_OK
+      -22s OUT:/services
+      -22s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -21s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+      -19s OUT:arezoo
+      -19s RENEW_INVOICE
+   ------ instr ------
+      +28s RENEW_OK :: ▫️نام سرویس : 342_arezoo_rahimi_mom
+      +29s OUT:/services
+      +30s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      +31s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+      +34s OUT:arezoo
+      +34s RENEW_INVOICE
+      +42s PAY_INSTR
+      +59s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +141s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +143s OUT:naderi
+     +144s STATUS
+
+##### PAY_INSTR 84179 2026-10-30T16:00:58+00:00
+      -42s PAY_INSTR
+      -14s RENEW_OK
+      -13s OUT:/services
+      -12s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -11s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+       -8s OUT:arezoo
+       -8s RENEW_INVOICE
+   ------ instr ------
+      +17s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      +99s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +101s OUT:naderi
+     +102s STATUS
+     +176s OUT:/services
+     +177s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +178s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +180s OUT:sheykha
+     +181s RENEW_INVOICE
+     +188s PAY_INSTR
+     +218s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+
+##### PAY_INSTR 84191 2026-10-30T16:04:06+00:00
+      -87s OUT:naderi
+      -86s STATUS
+      -12s OUT:/services
+      -11s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -10s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+       -8s OUT:sheykha
+       -7s RENEW_INVOICE
+   ------ instr ------
+      +30s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +169s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +171s OUT:vahid
+     +171s STATUS
+     +395s OUT:/services
+     +395s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +396s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +401s OUT:saeednia
+     +402s IN:✅ کانفیگ شما با موفقیت بروزرسانی گردید.ا
+
+##### PAY_INSTR 84224 2026-10-30T17:45:15+00:00
+      -34s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+      -30s OUT:arezoo
+      -30s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -19s OUT:/buy
+      -19s IN:يک نام کاربري دلخواه ارسال کنيد ⚠️ نام ک
+       -4s OUT:342_arezoo_rahimi_khale
+       -3s IN:⏳ در حال پردازش...
+   ------ instr ------
+      +43s CREATE_OK :: 👤 نام کاربری سرویس : 342_arezoo_rahimi_khale
+
+##### PAY_INSTR 84241 2026-10-30T20:11:59+00:00
+     -710s OUT:Naderi
+     -690s IN:↖️ به صفحه اصلی بازگشتید :
+     -683s OUT:🛍 مشاهده سرویس های خریداری شده من
+     -683s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     -681s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     -678s OUT:Naderi
+     -677s RENEW_INVOICE
+   ------ instr ------
+      +37s RENEW_OK :: ▫️نام سرویس : 289_naderi
+
+##### PAY_INSTR 84259 2026-10-31T13:53:22+00:00
+    -7013s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+    -7011s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+    -6929s OUT:Hadadian
+    -6928s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -18s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+      -12s OUT:Amir
+      -12s RENEW_INVOICE
+   ------ instr ------
+      +40s RENEW_OK :: ▫️نام سرویس : 535_amir_kamali
+    +1429s OUT:/services
+    +1429s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+    +1430s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+    +1434s OUT:Aria
+    +1434s RENEW_INVOICE
+    +1443s PAY_INSTR
+    +1474s RENEW_OK :: ▫️نام سرویس : 546_aria_rastegar_2_2979
+
+##### PAY_INSTR 84267 2026-10-31T14:17:25+00:00
+    -1443s PAY_INSTR
+    -1403s RENEW_OK
+      -14s OUT:/services
+      -14s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -13s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+       -9s OUT:Aria
+       -9s RENEW_INVOICE
+   ------ instr ------
+      +31s RENEW_OK :: ▫️نام سرویس : 546_aria_rastegar_2_2979
+
+##### PAY_INSTR 84276 2026-10-31T21:05:34+00:00
+   -24498s OUT:Aria
+   -24498s RENEW_INVOICE
+   -24489s PAY_INSTR
+   -24458s RENEW_OK
+   -21091s ALERT_MB
+    -9211s ALERT_DAYS
+    -7591s RENEW_INVOICE
+   ------ instr ------
+      +50s RENEW_OK :: ▫️نام سرویس : 517_mohammad_roshan
+      +69s OUT:/services
+      +69s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      +71s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+      +77s OUT:Niknam
+      +77s STATUS
+     +105s OUT:/services
+     +105s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +107s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +113s OUT:Niknam
+     +113s RENEW_INVOICE
+
+##### PAY_INSTR 84304 2026-10-31T21:12:40+00:00
+     -240s OUT:/services
+     -240s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     -238s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     -234s OUT:Shafeezad
+     -234s STATUS_EXPIRED
+      -46s OUT:/wallet
+       -4s OUT:212000
+   ------ instr ------
+      +32s WALLET_CREDIT :: 💎 کاربر گرامی مبلغ 212,435 تومان به کیف پول شما واریز گردید با تشکراز پرداخت شما
+     +329s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +340s OUT:Niknam
+     +340s RENEW_INVOICE
+     +366s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +372s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +385s OUT:Niknam
+     +385s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +392s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +396s OUT:Niknam
+     +396s RENEW_INVOICE
+
+##### PAY_INSTR 84339 2026-11-01T05:35:28+00:00
+   -29772s RENEW_INVOICE
+   -29762s STATUS
+      -14s OUT:/services
+      -13s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -11s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+       -6s OUT:Bagheri
+       -5s RENEW_INVOICE
+   ------ instr ------
+      +43s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +157s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +160s OUT:Niknam
+     +160s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +167s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +170s OUT:Niknam
+     +170s STATUS
+
+##### PAY_INSTR 84368 2026-11-01T13:43:04+00:00
+    -1668s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+    -1664s OUT:Sohrabi
+    -1664s IN:❌ اطلاعات سفارش پیدا نشد
+      -22s OUT:/buy
+      -22s IN:يک نام کاربري دلخواه ارسال کنيد ⚠️ نام ک
+       -9s OUT:518_Mohammad_Sohrabi
+       -9s IN:⏳ در حال پردازش...
+   ------ instr ------
+      +53s CREATE_OK :: 👤 نام کاربری سرویس : 518_mohammad_sohrabi
+
+##### PAY_INSTR 84394 2026-11-02T05:00:14+00:00
+   -54977s CREATE_OK
+   -45403s OUT:🛍 مشاهده سرویس های خریداری شده من
+   -45403s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+   -45401s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+   -45397s OUT:jamshidi
+   -45397s RENEW_INVOICE
+       -8s IN:❌ متأسفانه خطایی رخ داد. لطفاً دوباره تل
+   ------ instr ------
+      +31s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      +62s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+      +68s OUT:Salman
+      +68s STATUS
+
+##### PAY_INSTR 84415 2026-11-02T15:47:10+00:00
+   -38748s STATUS
+   -16627s ALERT_MB
+      -17s OUT:/services
+      -17s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -13s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+       -8s OUT:Shafeezad
+       -8s RENEW_INVOICE
+   ------ instr ------
+      +54s RENEW_OK :: ▫️نام سرویس : 508_shafeezad
+
+##### PAY_INSTR 84434 2026-11-02T19:53:08+00:00
+     -644s OUT:karampoor
+     -643s STATUS_EXPIRED
+      -22s OUT:/services
+      -22s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -21s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+      -17s OUT:Yasna
+      -17s RENEW_INVOICE
+   ------ instr ------
+      +32s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+     +324s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+     +329s OUT:Karampoor
+     +330s RENEW_INVOICE
+     +338s PAY_INSTR
+     +384s RENEW_OK :: ▫️نام سرویس : 479_karampoor_father
+
+##### PAY_INSTR 84448 2026-11-02T19:58:46+00:00
+     -355s OUT:Yasna
+     -355s RENEW_INVOICE
+     -338s PAY_INSTR
+     -306s IN:🛍 اشتراک های خریداری شده توسط شما  ⚠️ بر
+      -14s IN:📌 عبارت جستجو را ارسال کنید  🔍 جستجو بر 
+       -9s OUT:Karampoor
+       -8s RENEW_INVOICE
+   ------ instr ------
+      +46s RENEW_OK :: ▫️نام سرویس : 479_karampoor_father

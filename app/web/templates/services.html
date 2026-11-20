@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% from "_flash.html" import render as flash_box %}
+{% block title %}{{ t('services_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('services_title') }}</h1>
+    <p data-result-count>{{ t('matching_page', total=total, page=page + 1, pages=pages) }}</p>
+  </div>
+  <div class="top-actions">
+    <a class="btn" href="/services/create">{{ t('create_service') }}</a>
+    <a class="btn ghost small" href="/services/export.csv?q={{ q }}&vendor={{ vendor }}&status_f={{ status_f }}&link_f={{ link_f }}&plan_f={{ plan_f }}">{{ t('export_csv') }}</a>
+    <form method="post" action="/services/audit-urls" onsubmit="return confirm({{ t('audit_confirm')|tojson }});">
+      <button class="btn ghost small" type="submit">{{ t('audit_urls') }}</button>
+    </form>
+  </div>
+</div>
+{% if flash %}{{ flash_box(t('done_flash', flash=flash)) }}{% endif %}
+
+<section class="panel">
+  <div class="toolbar legend-bar">
+    <span class="chip">{{ t('legend_economy') }}</span>
+    <span class="chip">{{ t('legend_volume') }}</span>
+    <span class="chip">{{ t('legend_finearts') }}</span>
+    <span class="chip">{{ t('legend_netplus') }}</span>
+    <span class="muted">{{ t('legend_hint') }}</span>
+  </div>
+
+  <div class="toolbar">
+    <form method="get" action="/services" data-live-search data-live-target="#services-live">
+      <input name="q" value="{{ q }}" placeholder="{{ t('search_services') }}" autocomplete="off" />
+      <select name="vendor">
+        <option value="">{{ t('all_vendors') }}</option>
+        {% for v in vendors %}
+        <option value="{{ v.key }}" {% if vendor == v.key %}selected{% endif %}>{{ v.key | vendor_icon }} {{ v.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="status_f">
+        <option value="">{{ t('all_statuses') }}</option>
+        {% for st in ['active','warning','volume_exhausted','expired','disabled','unknown'] %}
+        <option value="{{ st }}" {% if status_f == st %}selected{% endif %}>{{ st | status_icon }} {{ st }}</option>
+        {% endfor %}
+      </select>
+      <select name="plan_f">
+        <option value="">{{ t('all_plans') }}</option>
+        <option value="economy" {% if plan_f == 'economy' %}selected{% endif %}>{{ t('plan_economy') }}</option>
+        <option value="volume" {% if plan_f == 'volume' %}selected{% endif %}>{{ t('plan_volume') }}</option>
+      </select>
+      <select name="link_f">
+        <option value="">{{ t('any_link') }}</option>
+        <option value="has" {% if link_f == 'has' %}selected{% endif %}>{{ t('has_url') }}</option>
+        <option value="missing" {% if link_f == 'missing' %}selected{% endif %}>{{ t('missing_url') }}</option>
+      </select>
+      <input type="hidden" name="sort" value="{{ sort }}" />
+      <input type="hidden" name="direction" value="{{ direction }}" />
+    </form>
+  </div>
+
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-col-picker data-storage-key="fx_svc_cols" data-col-root="#services-live">
+      <span class="muted">{{ t('columns') }}</span>
+      {% for key, label in service_columns %}
+      <label class="chip"><input type="checkbox" value="{{ key }}" checked /> {{ label }}</label>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-act-picker data-storage-key="fx_svc_acts" data-act-root="#services-live">
+      <span class="muted">{{ t('list_actions') }}</span>
+      <label class="chip"><input type="checkbox" value="renew" checked /> {{ t('btn_renew') }}</label>
+      <label class="chip"><input type="checkbox" value="open" checked /> {{ t('open') }}</label>
+      <label class="chip"><input type="checkbox" value="copy_link" checked /> {{ t('act_copy_link') }}</label>
+      <label class="chip"><input type="checkbox" value="refresh_url" checked /> {{ t('refresh_url') }}</label>
+      <label class="chip"><input type="checkbox" value="refresh_vendor" checked /> {{ t('refresh_vendor') }}</label>
+      <label class="chip"><input type="checkbox" value="unlink" checked /> {{ t('unlink') }}</label>
+    </div>
+  </div>
+
+  <div class="toolbar tools-bar">
+    <form method="post" action="/services/bulk" data-bulk class="bulk-form">
+      <input type="hidden" name="ids" value="" />
+      <select name="action">
+        <option value="unlink">{{ t('unlink_owners') }}</option>
+        <option value="assign">{{ t('assign_owner') }}</option>
+        <option value="status">{{ t('set_status') }}</option>
+        <option value="clear_url">{{ t('clear_url') }}</option>
+        <option value="refresh_url">{{ t('refresh_url') }}</option>
+        <option value="refresh_vendor">{{ t('refresh_vendor') }}</option>
+        <option value="delete">{{ t('delete_services') }}</option>
+      </select>
+      <input name="owner_tg" placeholder="{{ t('owner_tg_ph') }}" />
+      <select name="status">
+        {% for st in ['active','warning','volume_exhausted','expired','disabled','unknown'] %}
+        <option value="{{ st }}">{{ st | status_icon }} {{ st }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn small" type="submit">{{ t('run_selected') }}</button>
+      <span class="muted">{{ t('tip_select_all') }}</span>
+    </form>
+  </div>
+
+  <div id="services-live">
+    {% include "services_table.html" %}
+  </div>
+</section>
+{% endblock %}

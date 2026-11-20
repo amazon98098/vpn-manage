@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ t('transactions_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('transactions_title') }}</h1>
+    <p>{{ t('ledger_page', total=total, page=page + 1, pages=pages) }}</p>
+  </div>
+</div>
+<section class="panel">
+  <div class="toolbar">
+    <form method="get" action="/transactions">
+      <input name="q" value="{{ q }}" placeholder="{{ t('filter_tg') }}" />
+      <button class="btn small" type="submit">{{ t('filter') }}</button>
+    </form>
+  </div>
+  <div class="toolbar tools-bar">
+    <div class="col-picker" data-col-picker data-storage-key="fx_tx_cols">
+      <span class="muted">{{ t('columns') }}</span>
+      <label class="chip"><input type="checkbox" value="id" checked /> 🆔</label>
+      <label class="chip"><input type="checkbox" value="customer" checked /> {{ t('customer') }}</label>
+      <label class="chip"><input type="checkbox" value="amount" checked /> {{ t('amount') }}</label>
+      <label class="chip"><input type="checkbox" value="balance" checked /> {{ t('balance') }}</label>
+      <label class="chip"><input type="checkbox" value="kind" checked /> {{ t('kind') }}</label>
+      <label class="chip"><input type="checkbox" value="order" checked /> {{ t('order') }}</label>
+      <label class="chip"><input type="checkbox" value="note" checked /> {{ t('note') }}</label>
+      <label class="chip"><input type="checkbox" value="when" checked /> {{ t('when_col') }}</label>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th><input type="checkbox" data-select-all /></th>
+        <th data-col="id">🆔</th>
+        <th data-col="customer">{{ t('customer') }}</th>
+        <th data-col="amount">{{ t('amount') }}</th>
+        <th data-col="balance">{{ t('balance') }}</th>
+        <th data-col="kind">{{ t('kind') }}</th>
+        <th data-col="order">{{ t('order') }}</th>
+        <th data-col="note">📝 {{ t('note') }}</th>
+        <th data-col="when">{{ t('when_col') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><input class="row-pick" type="checkbox" value="{{ row.id }}" /></td>
+        <td class="mono" data-col="id">{{ row.id }}</td>
+        <td class="mono" data-col="customer"><button type="button" class="copy-cell" data-copy="{{ row.telegram_id }}" title="{{ t('copy_id') }}">{{ row.telegram_id }}</button></td>
+        <td class="mono num-cell" data-col="amount">{{ (row.amount_toman or 0) | toman }}</td>
+        <td class="mono num-cell" data-col="balance">{{ (row.balance_after or 0) | toman }}</td>
+        <td data-col="kind"><span class="chip">{{ row.kind }}</span></td>
+        <td class="mono" data-col="order">{{ row.order_id or '—' }}</td>
+        <td class="muted" data-col="note">{{ row.note or '—' }}</td>
+        <td class="mono muted" data-col="when">{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="muted">{{ t('no_ledger') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pager">
+    {% if page > 0 %}<a class="btn ghost small" href="/transactions?q={{ q }}&page={{ page - 1 }}">{{ t('prev') }}</a>{% endif %}
+    <span class="muted">{{ t('page_of', page=page + 1, pages=pages) }}</span>
+    {% if page + 1 < pages %}<a class="btn ghost small" href="/transactions?q={{ q }}&page={{ page + 1 }}">{{ t('next') }}</a>{% endif %}
+  </div>
+</section>
+{% endblock %}
