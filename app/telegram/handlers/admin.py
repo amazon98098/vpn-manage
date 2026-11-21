@@ -1238,6 +1238,18 @@ async def cb_sync_run(
     asyncio.create_task(_run_sync())
 
 
+_STRATEGY_LABELS_FA = {
+    "automatic": "خودکار (لینک اگر پشتیبانی شود)",
+    "subscription_url": "از لینک اشتراک (HTTP)",
+    "provider_bot": "فقط ربات فروشنده (بدون HTTP)",
+}
+
+
+def _strategy_fa(value: str | None) -> str:
+    key = (value or "automatic").strip().lower()
+    return _STRATEGY_LABELS_FA.get(key, key)
+
+
 @router.callback_query(F.data == "menu:vendor")
 async def cb_vendor(callback: CallbackQuery, settings: Settings) -> None:
     if not is_admin(callback.from_user.id, settings):
@@ -1245,10 +1257,15 @@ async def cb_vendor(callback: CallbackQuery, settings: Settings) -> None:
     await safe_answer(callback)
     from app.vendors.registry import list_registered_vendor_keys, get_vendor_capabilities
 
+    with get_session() as session:
+        db_vendors = {v.key: v for v in repo.list_vendors(session)}
+
     lines = ["🏪 <b>فروشندگان ثبت‌شده</b>\n"]
     for key in list_registered_vendor_keys() or ["netplus"]:
         caps = get_vendor_capabilities(key)
         name = caps.display_name if caps else key
+        row = db_vendors.get(key)
+        strat = _strategy_fa(row.info_refresh_strategy if row else None)
         if key == "netplus":
             bot = settings.netplus_bot
             extra = "شنونده پیام خصوصی روشن"
@@ -1261,18 +1278,122 @@ async def cb_vendor(callback: CallbackQuery, settings: Settings) -> None:
         else:
             bot = "—"
             extra = ""
-        lines.append(f"• <b>{name}</b> ({key})\n  یوزرنیم: {bot}\n  {extra}")
+        lines.append(
+            f"• <b>{name}</b> ({key})\n"
+            f"  یوزرنیم: {bot}\n"
+            f"  بروزرسانی: <code>{strat}</code>\n"
+            f"  {extra}"
+        )
     lines.append("\nیوزرنیم اشتراک‌ها سراسری است (یک نام زنده در کل فروشگاه).")
     await _ui_show(
         callback.message,
         "\n".join(lines),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="⬅️ تنظیمات", callback_data="menu:settings")]
+                [
+                    InlineKeyboardButton(
+                        text="🔄 تغییر استراتژی بروزرسانی",
+                        callback_data="settings:refresh_strategy",
+                    )
+                ],
+                [InlineKeyboardButton(text="⬅️ تنظیمات", callback_data="menu:settings")],
             ]
         ),
         edit=True,
     )
+
+
+async def _refresh_strategy_screen(message: Message, *, edit: bool = False) -> None:
+    with get_session() as session:
+        vendors = repo.list_vendors(session)
+        rows_data = [
+            (
+                v.key,
+                v.name,
+                (v.info_refresh_strategy or "automatic").strip().lower(),
+            )
+            for v in vendors
+        ]
+
+    lines = [
+        "🔄 <b>استراتژی بروزرسانی سرویس</b>\n",
+        "تعیین می‌کند حجم/انقضا از کجا خوانده شود:",
+        "• <code>subscription_url</code> — از لینک اشتراک (HTTP) ✅ پیشنهادی",
+        "• <code>automatic</code> — مثل لینک، اگر فروشنده پشتیبانی کند",
+        "• <code>provider_bot</code> — فقط با رفتن داخل ربات فروشنده "
+        "(HTTP خاموش؛ باعث null ماندن داده می‌شود)\n",
+    ]
+    kb_rows: list[list[InlineKeyboardButton]] = []
+    if not rows_data:
+        lines.append("هنوز فروشنده‌ای در دیتابیس نیست.")
+    for key, name, strat in rows_data:
+        lines.append(
+            f"• <b>{name}</b> (<code>{key}</code>)\n"
+            f"  فعلی: <code>{strat}</code> — {_strategy_fa(strat)}"
+        )
+        kb_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{'✅' if strat == 'subscription_url' else '○'} لینک {key}",
+                    callback_data=f"vendor:strategy:{key}:subscription_url",
+                )
+            ]
+        )
+        kb_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{'✅' if strat == 'automatic' else '○'} خودکار {key}",
+                    callback_data=f"vendor:strategy:{key}:automatic",
+                ),
+                InlineKeyboardButton(
+                    text=f"{'✅' if strat == 'provider_bot' else '○'} ربات {key}",
+                    callback_data=f"vendor:strategy:{key}:provider_bot",
+                ),
+            ]
+        )
+    kb_rows.append(
+        [InlineKeyboardButton(text="⬅️ تنظیمات", callback_data="menu:settings")]
+    )
+    await _ui_show(
+        message,
+        "\n".join(lines),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
+        edit=edit,
+    )
+
+
+@router.callback_query(F.data == "settings:refresh_strategy")
+async def cb_settings_refresh_strategy(
+    callback: CallbackQuery, settings: Settings
+) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    await safe_answer(callback)
+    await _refresh_strategy_screen(callback.message, edit=True)
+
+
+@router.callback_query(F.data.startswith("vendor:strategy:"))
+async def cb_vendor_strategy_set(callback: CallbackQuery, settings: Settings) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    parts = (callback.data or "").split(":")
+    # vendor:strategy:{key}:{strategy}
+    if len(parts) != 4:
+        await callback.answer("نامعتبر", show_alert=True)
+        return
+    _, _, vendor_key, strategy = parts
+    try:
+        with get_session() as session:
+            row = repo.set_vendor_info_refresh_strategy(session, vendor_key, strategy)
+            if not row:
+                await callback.answer("فروشنده پیدا نشد", show_alert=True)
+                return
+            new_val = row.info_refresh_strategy
+    except ValueError:
+        await callback.answer("استراتژی نامعتبر", show_alert=True)
+        return
+    await callback.answer(f"ذخیره شد: {new_val}")
+    await _refresh_strategy_screen(callback.message, edit=True)
 
 
 @router.callback_query(F.data == "menu:help")

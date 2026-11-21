@@ -140,6 +140,31 @@ def get_vendor_by_key(session: Session, key: str) -> Vendor | None:
     return session.scalar(select(Vendor).where(Vendor.key == key))
 
 
+VENDOR_INFO_REFRESH_STRATEGIES = frozenset(
+    {"automatic", "subscription_url", "provider_bot"}
+)
+
+
+def list_vendors(session: Session) -> list[Vendor]:
+    return list(session.scalars(select(Vendor).order_by(Vendor.id.asc())))
+
+
+def set_vendor_info_refresh_strategy(
+    session: Session, vendor_key: str, strategy: str
+) -> Vendor | None:
+    """Set how inventory traffic/expiry is refreshed for one vendor."""
+    key = (vendor_key or "").strip().lower()
+    val = (strategy or "").strip().lower()
+    if val not in VENDOR_INFO_REFRESH_STRATEGIES:
+        raise ValueError(f"invalid_strategy:{val}")
+    vendor = get_vendor_by_key(session, key)
+    if not vendor:
+        return None
+    vendor.info_refresh_strategy = val
+    session.flush()
+    return vendor
+
+
 def resolve_vendor_for_username(session: Session, username: str) -> Vendor | None:
     """Vendor owning this inventory username, else default NetPlus row if present."""
     sub = get_subscription_by_username(session, username)
