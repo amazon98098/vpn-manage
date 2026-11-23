@@ -133,8 +133,7 @@ async def enqueue_fulfillment(order_id: int, *, requested_by: int | None = None)
             sent = await customer_bridge.customer_bot.send_message(
                 tg,
                 f"✅ پرداخت تایید شد.\n"
-                f"سرویس <code>{uname}</code> در صف فعال‌سازی است.\n"
-                "پس از آماده‌شدن، از «🛍 سرویس های من» لینک را بگیرید.",
+                f"سرویس <code>{uname}</code> در صف فعال‌سازی است.",
             )
             from app.telegram.handlers.customer import _track_order_ui_message
 

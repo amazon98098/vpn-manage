@@ -118,7 +118,7 @@ async def approve_customer_order(
             except Exception:
                 log.exception("wallet credit notify failed order=%s", order_id)
         summary = (
-            f"✅ شارژ کیف پول از پنل · سفارش #{order_id}\n"
+            f"✅ شارژ کیف پول از پلن · سفارش #{order_id}\n"
             f"+{price:,} ت → موجودی <code>{bal:,}</code> ت"
             + ("" if credited else "\n(قبلاً شارژ شده بود)")
         )
@@ -137,7 +137,7 @@ async def approve_customer_order(
         if not result.get("ok"):
             return result
         summary = (
-            f"✅ سفارش #{order_id} از پنل تایید شد\n"
+            f"✅ سفارش #{order_id} از پلن تایید شد\n"
             f"{kind} · <code>{uname}</code> · مبلغ <code>{amount or '—'}</code>\n"
             "مشتری مطلع شد / فعال‌سازی در صف است."
         )
@@ -153,7 +153,7 @@ async def approve_customer_order(
     if not result.get("ok"):
         return result
     summary = (
-        f"✅ سفارش #{order_id} از پنل تایید و به صف رفت\n"
+        f"✅ سفارش #{order_id} از پلن تایید و به صف رفت\n"
         f"{kind} · <code>{uname}</code> → صف #{result.get('job_id')}"
     )
     await _update_tracked_admin_order_ui(order_id, summary)
@@ -165,12 +165,12 @@ async def approve_customer_order(
 async def reject_customer_order(
     order_id: int,
     *,
-    reason: str = "سفارش از پنل ادمین رد شد.",
+    reason: str = "سفارش از پلن ادمین رد شد.",
     admin_id: int = 0,
     source: str = "admin_web",
 ) -> dict[str, Any]:
     """Reject open order, notify customer, open rejection ticket, update admin UI."""
-    reason = (reason or "").strip() or "سفارش از پنل ادمین رد شد."
+    reason = (reason or "").strip() or "سفارش از پلن ادمین رد شد."
     with get_session() as session:
         order = repo.get_customer_order(session, order_id)
         if not order:
@@ -221,7 +221,7 @@ async def reject_customer_order(
             log.exception("reject customer notify failed order=%s", order_id)
 
     summary = (
-        f"❌ سفارش #{order_id} از پنل رد شد\n"
+        f"❌ سفارش #{order_id} از پلن رد شد\n"
         f"تیکت #{ticket_id}\n"
         f"دلیل: {reason[:180]}"
     )

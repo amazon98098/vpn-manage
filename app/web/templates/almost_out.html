@@ -6,7 +6,7 @@
   <div>
     <h1>{{ t('almost_out_title') }}</h1>
     <p>{{ t('almost_out_lead', days=days_th, traffic=traffic_th | traffic) }}</p>
-    <p class="muted small">{{ t('almost_out_auto_scan', seconds=life_scan) }}</p>
+    <p class="muted small">{{ t('almost_out_auto_scan', interval=life_scan_label) }}</p>
   </div>
   <div class="top-actions">
     <form method="post" action="/almost-out/check" onsubmit="return confirm({{ t('almost_out_check_confirm')|tojson }});">

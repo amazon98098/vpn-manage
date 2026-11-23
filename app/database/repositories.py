@@ -1785,6 +1785,10 @@ DEFAULT_LIFECYCLE_SCAN_INTERVAL_SECONDS = 300  # 5m
 DEFAULT_ADMIN_VENDOR_ALERT_MAX_REPEATS = 3
 DEFAULT_ADMIN_VENDOR_ALERT_WINDOW_HOURS = 72
 DEFAULT_ADMIN_VENDOR_DELETED_SUPPRESS_HOURS = 168  # 7d
+# When True: paid create/renew wait for admin approve (no auto fulfill).
+DEFAULT_ORDERS_MANUAL_APPROVAL = False
+# vendor renew/create settle: wallet = NetPlus balance only; card = allow card-to-card
+DEFAULT_VENDOR_SETTLE_MODE = "wallet"
 
 DEFAULT_BOT_MESSAGES: dict[str, str] = {
     "welcome": (
@@ -1894,7 +1898,7 @@ DEFAULT_BOT_MESSAGES: dict[str, str] = {
         "💳 پرداخت: کپی مبلغ و کارت، واریز، منتظر تایید"
     ),
     "admin.welcome": (
-        "سلام 👋 پنل مدیریت آماده است.\n"
+        "سلام 👋 پلن مدیریت آماده است.\n"
         "از منوی پایین استفاده کنید.\n"
         "تنظیمات قابل‌پیکربندی زیر «⚙️ تنظیمات» هستند.\n"
         "درخواست‌های مشتری زیر «📥 درخواست‌ها»."
@@ -2526,6 +2530,34 @@ def get_admin_vendor_deleted_suppress_hours(session: Session) -> int:
 def set_admin_vendor_deleted_suppress_hours(session: Session, hours: int) -> int:
     val = max(1, int(hours))
     set_state(session, "admin_vendor_deleted_suppress_hours", str(val))
+    return val
+
+
+def is_orders_manual_approval(session: Session) -> bool:
+    raw = (get_state(session, "orders_manual_approval") or "").strip().lower()
+    if not raw:
+        return DEFAULT_ORDERS_MANUAL_APPROVAL
+    return raw in {"1", "true", "yes", "on", "manual"}
+
+
+def set_orders_manual_approval(session: Session, enabled: bool) -> bool:
+    val = bool(enabled)
+    set_state(session, "orders_manual_approval", "1" if val else "0")
+    return val
+
+
+def get_vendor_settle_mode(session: Session) -> str:
+    raw = (get_state(session, "vendor_settle_mode") or "").strip().lower()
+    if raw in {"wallet", "card"}:
+        return raw
+    return DEFAULT_VENDOR_SETTLE_MODE
+
+
+def set_vendor_settle_mode(session: Session, mode: str) -> str:
+    val = (mode or "").strip().lower()
+    if val not in {"wallet", "card"}:
+        val = DEFAULT_VENDOR_SETTLE_MODE
+    set_state(session, "vendor_settle_mode", val)
     return val
 
 

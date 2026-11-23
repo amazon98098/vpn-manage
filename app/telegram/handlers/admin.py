@@ -50,6 +50,11 @@ from app.telegram.ui_helpers import (
     total_pages,
 )
 from app.services.customer_payments import auto_confirm_by_amount
+from app.utils.duration import (
+    format_seconds_fa,
+    format_seconds_list_fa,
+    minutes_to_seconds,
+)
 from app.utils.text import format_mb
 
 router = Router(name="admin")
@@ -1923,8 +1928,8 @@ async def cb_settings_lifecycle(callback: CallbackQuery, settings: Settings) -> 
         "حذف سرویس فقط وقتی از NetPlus پیام حذف بیاید به مشتری اطلاع داده می‌شود.\n\n"
         f"آستانه روز: <code>{days}</code>\n"
         f"آستانه حجم: <code>{traffic:g}</code> مگابایت\n"
-        f"فاصله تکرار هشدار: <code>{cool}</code> ثانیه\n"
-        f"بازه اسکن: <code>{scan}</code> ثانیه\n\n"
+        f"فاصله تکرار هشدار: <code>{format_seconds_fa(cool)}</code>\n"
+        f"بازه اسکن: <code>{format_seconds_fa(scan)}</code>\n\n"
         "متن پیام‌ها را از «پیام‌ها و محتوا» ویرایش کنید:\n"
         "<code>alert_almost_out_days</code> · "
         "<code>alert_almost_out_traffic</code> · "
@@ -1961,8 +1966,8 @@ async def cb_lifecycle_edit(callback: CallbackQuery, settings: Settings) -> None
         "یک خط بفرستید، مثال:\n"
         "<code>days 3</code>\n"
         "<code>traffic 1024</code> (مگابایت)\n"
-        "<code>cooldown 86400</code>\n"
-        "<code>scan 300</code>"
+        "<code>cooldown 1440</code> (دقیقه)\n"
+        "<code>scan 5</code> (دقیقه)"
     )
     await callback.answer()
 
@@ -1979,7 +1984,7 @@ async def cb_settings_userinfo_ttl(callback: CallbackQuery, settings: Settings) 
         "بروزرسانی HTTP بیشتر از این مدت گذشته باشد، "
         "حجم/انقضا از همان لینک ذخیره‌شده خوانده می‌شود "
         "(بدون رفتن به ربات NetPlus).\n\n"
-        f"مقدار فعلی: <code>{ttl}</code> ثانیه\n"
+        f"مقدار فعلی: <code>{format_seconds_fa(ttl)}</code>\n"
         "۰ = همیشه بروزرسانی کن\n\n"
         "برای تغییر دکمه ویرایش را بزنید.",
         reply_markup=InlineKeyboardMarkup(
@@ -2005,7 +2010,7 @@ async def cb_userinfo_ttl_edit(callback: CallbackQuery, settings: Settings) -> N
     with get_session() as session:
         repo.set_state(session, f"admin_flow:{uid}", "userinfo_ttl_edit")
     await callback.message.answer(
-        "فقط عدد ثانیه را بفرستید (مثال: <code>120</code> یا <code>0</code>)."
+        "فقط عدد <b>دقیقه</b> را بفرستید (مثال: <code>2</code> یا <code>0</code>)."
     )
     await callback.answer()
 
@@ -2019,11 +2024,10 @@ async def cb_settings_reminders(callback: CallbackQuery, settings: Settings) -> 
         delays = repo.get_reminder_delays_seconds(session)
     await callback.message.answer(
         "⏰ <b>یادآوری و انقضای سفارش</b>\n\n"
-        f"مهلت پرداخت: <code>{ttl}</code> ثانیه "
-        f"({ttl // 3600} ساعت)\n"
-        f"فواصل یادآوری (ثانیه): <code>{','.join(str(d) for d in delays)}</code>\n\n"
-        "برای تغییر مهلت: <code>ttl 86400</code>\n"
-        "برای تغییر یادآوری‌ها: <code>remind 300,3600,21600</code>",
+        f"مهلت پرداخت: <code>{format_seconds_fa(ttl)}</code>\n"
+        f"فواصل یادآوری: <code>{format_seconds_list_fa(delays)}</code>\n\n"
+        "برای تغییر مهلت (دقیقه): <code>ttl 1440</code>\n"
+        "برای تغییر یادآوری‌ها (دقیقه): <code>remind 5,60,360</code>",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -2047,11 +2051,83 @@ async def cb_reminders_edit(callback: CallbackQuery, settings: Settings) -> None
     with get_session() as session:
         repo.set_state(session, f"admin_flow:{uid}", "reminders_edit")
     await callback.message.answer(
-        "یک خط بفرستید:\n"
-        "• <code>ttl 86400</code>\n"
-        "• <code>remind 300,3600,21600</code>"
+        "یک خط بفرستید (اعداد بر حسب <b>دقیقه</b>):\n"
+        "• <code>ttl 1440</code>\n"
+        "• <code>remind 5,60,360</code>"
     )
     await callback.answer()
+
+
+@router.callback_query(F.data == "settings:approval")
+async def cb_settings_approval(callback: CallbackQuery, settings: Settings) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    await safe_answer(callback)
+    with get_session() as session:
+        manual = repo.is_orders_manual_approval(session)
+        settle = repo.get_vendor_settle_mode(session)
+    manual_fa = "✅ روشن (تایید دستی ادمین)" if manual else "⚡ خاموش (فعال‌سازی خودکار)"
+    settle_fa = (
+        "💰 فقط موجودی فروشنده"
+        if settle == "wallet"
+        else "💳 موجودی + کارت‌به‌کارت در صورت کمبود"
+    )
+    await _ui_show(
+        callback.message,
+        "✅ <b>تایید سفارش و پرداخت فروشنده</b>\n\n"
+        f"تایید دستی خرید/تمدید: {manual_fa}\n"
+        f"تسویه در فروشنده: {settle_fa}\n\n"
+        "با تایید دستی، بعد از پرداخت مشتری سفارش برای ادمین می‌آید "
+        "و تا تایید صریح فعال نمی‌شود.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="🔴 خاموش کردن تایید دستی"
+                        if manual
+                        else "🟢 روشن کردن تایید دستی",
+                        callback_data="approval:manual:toggle",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="💰 فقط موجودی فروشنده"
+                        if settle != "wallet"
+                        else "💳 اجازه کارت‌به‌کارت",
+                        callback_data="approval:settle:toggle",
+                    )
+                ],
+                [InlineKeyboardButton(text="⬅️ تنظیمات", callback_data="menu:settings")],
+            ]
+        ),
+        edit=True,
+    )
+
+
+@router.callback_query(F.data == "approval:manual:toggle")
+async def cb_approval_manual_toggle(
+    callback: CallbackQuery, settings: Settings
+) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    with get_session() as session:
+        now = not repo.is_orders_manual_approval(session)
+        repo.set_orders_manual_approval(session, now)
+    await cb_settings_approval(callback, settings)
+
+
+@router.callback_query(F.data == "approval:settle:toggle")
+async def cb_approval_settle_toggle(
+    callback: CallbackQuery, settings: Settings
+) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    with get_session() as session:
+        cur = repo.get_vendor_settle_mode(session)
+        repo.set_vendor_settle_mode(
+            session, "card" if cur == "wallet" else "wallet"
+        )
+    await cb_settings_approval(callback, settings)
 
 
 @router.callback_query(F.data == "settings:maintenance")
@@ -3306,15 +3382,19 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
         return
 
     if flow == "userinfo_ttl_edit":
-        digits = "".join(ch for ch in query if ch.isdigit())
-        if digits == "" and query.strip() != "0":
-            await message.answer("فقط عدد ثانیه بفرستید (مثال: 120).")
+        raw = query.strip().replace(",", ".")
+        try:
+            minutes = float(raw)
+        except ValueError:
+            await message.answer("فقط عدد دقیقه بفرستید (مثال: 2).")
             return
         with get_session() as session:
-            ttl = repo.set_userinfo_ttl_seconds(session, int(digits or "0"))
+            ttl = repo.set_userinfo_ttl_seconds(
+                session, minutes_to_seconds(minutes)
+            )
             repo.set_state(session, f"admin_flow:{uid}", "")
         await message.answer(
-            f"✅ TTL بروزرسانی لینک: <code>{ttl}</code> ثانیه",
+            f"✅ TTL بروزرسانی لینک: <code>{format_seconds_fa(ttl)}</code>",
             reply_markup=admin_reply_menu(),
         )
         return
@@ -3325,7 +3405,7 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
             await message.answer("مثال: days 3  یا  traffic 1024")
             return
         key = parts[0].lower()
-        raw = parts[1].replace(",", "")
+        raw = parts[1].replace(",", ".")
         try:
             with get_session() as session:
                 if key in ("days", "day"):
@@ -3335,11 +3415,15 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
                     val = repo.set_alert_traffic_mb_threshold(session, float(raw))
                     msg = f"✅ آستانه حجم: <code>{val:g}</code> مگابایت"
                 elif key in ("cooldown", "cool"):
-                    val = repo.set_lifecycle_alert_cooldown_seconds(session, int(float(raw)))
-                    msg = f"✅ فاصله تکرار هشدار: <code>{val}</code> ثانیه"
+                    val = repo.set_lifecycle_alert_cooldown_seconds(
+                        session, minutes_to_seconds(raw)
+                    )
+                    msg = f"✅ فاصله تکرار هشدار: <code>{format_seconds_fa(val)}</code>"
                 elif key == "scan":
-                    val = repo.set_lifecycle_scan_interval_seconds(session, int(float(raw)))
-                    msg = f"✅ بازه اسکن: <code>{val}</code> ثانیه"
+                    val = repo.set_lifecycle_scan_interval_seconds(
+                        session, minutes_to_seconds(raw)
+                    )
+                    msg = f"✅ بازه اسکن: <code>{format_seconds_fa(val)}</code>"
                 else:
                     await message.answer("کلید نامعتبر. days / traffic / cooldown / scan")
                     return
@@ -3524,35 +3608,35 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
         low = query.lower().strip()
         with get_session() as session:
             if low.startswith("ttl"):
-                digits = "".join(ch for ch in low if ch.isdigit())
-                if not digits:
-                    await message.answer("مثال: ttl 86400")
+                raw = query.split(None, 1)[1] if " " in query else ""
+                try:
+                    sec = minutes_to_seconds(raw)
+                except ValueError:
+                    await message.answer("مثال: ttl 1440  (دقیقه)")
                     return
-                val = repo.set_order_ttl_seconds(session, int(digits))
+                val = repo.set_order_ttl_seconds(session, sec)
                 repo.set_state(session, f"admin_flow:{uid}", "")
                 await message.answer(
-                    f"✅ مهلت سفارش: {val} ثانیه",
+                    f"✅ مهلت سفارش: {format_seconds_fa(val)}",
                     reply_markup=admin_reply_menu(),
                 )
                 return
             if low.startswith("remind"):
                 raw = query.split(None, 1)[1] if " " in query else ""
-                parts = [
-                    int(p.strip())
-                    for p in raw.replace(";", ",").split(",")
-                    if p.strip().isdigit()
-                ]
+                from app.utils.duration import parse_minutes_list
+
+                parts = parse_minutes_list(raw)
                 if not parts:
-                    await message.answer("مثال: remind 300,3600,21600")
+                    await message.answer("مثال: remind 5,60,360  (دقیقه)")
                     return
                 delays = repo.set_reminder_delays_seconds(session, parts)
                 repo.set_state(session, f"admin_flow:{uid}", "")
                 await message.answer(
-                    f"✅ یادآوری‌ها: {', '.join(str(d) for d in delays)}",
+                    f"✅ یادآوری‌ها: {format_seconds_list_fa(delays)}",
                     reply_markup=admin_reply_menu(),
                 )
                 return
-        await message.answer("فرمت: ttl 86400  یا  remind 300,3600")
+        await message.answer("فرمت: ttl 1440  یا  remind 5,60,360  (دقیقه)")
         return
 
     if flow == "maintenance_msg_edit":

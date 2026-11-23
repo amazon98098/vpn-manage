@@ -14,7 +14,6 @@ from aiogram.types import (
     CopyTextButton,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
 )
@@ -1517,7 +1516,10 @@ async def order_pay_resume(callback: CallbackQuery, settings: Settings) -> None:
 @router.callback_query(F.data == "cust:home")
 async def cust_home(callback: CallbackQuery) -> None:
     await safe_answer(callback)
-    _set_flow(callback.from_user.id if callback.from_user else 0, "")
+    uid = callback.from_user.id if callback.from_user else 0
+    _set_flow(uid, "")
+    # Restore main bottom keyboard (e.g. leaving support submenu).
+    await callback.message.answer("🏠 منوی اصلی", reply_markup=customer_menu())
     await _show_customer_home(callback.message, edit=True)
 
 
@@ -1548,7 +1550,18 @@ async def cust_go(callback: CallbackQuery, settings: Settings) -> None:
         await _show_education_menu(callback.message, edit=True)
         return
     if action == "support":
-        await support_hint(callback.message, settings)
+        # Reply keyboard swap needs a new message; also show inline on page.
+        await callback.message.answer(
+            _msg("support_hint", support=settings.support_text),
+            reply_markup=support_reply_menu(),
+        )
+        _set_flow(uid, "support_hub")
+        await _ui_show(
+            callback.message,
+            "از دکمه‌های زیر یا منوی پایین استفاده کنید:",
+            reply_markup=_support_hub_inline(),
+            edit=True,
+        )
         return
     await _show_customer_home(callback.message, edit=True)
 
@@ -1682,8 +1695,6 @@ def _format_service_info(sub, username: str) -> str:
         f"📡 وضعیت: <b>{status_fa(sub.status)}</b>\n"
         f"{icon} نام سرویس: <b>{ltr(sub.username)}</b> {icon}\n"
         f"{icon} محصول: {product}\n\n"
-        f"🔋 حجم سرویس: {format_mb(sub.traffic_limit_mb)}\n"
-        f"📉 حجم مصرفی: {format_mb(sub.used_traffic_mb)}\n"
         f"✅ حجم باقی‌مانده: {format_mb(sub.remaining_traffic_mb)}\n"
         f"📅 تاریخ اتمام : {expire_line}\n\n"
         "💡 برای قطع دسترسی دیگران از «🔐 تغییر لینک» استفاده کنید."
@@ -1908,6 +1919,7 @@ def _load_service_for_display(username: str, *, force: bool = False):
 
 @router.callback_query(F.data.startswith("cust:svclink:"))
 async def svc_link(callback: CallbackQuery) -> None:
+    """Show subscription URL inline on the same service message (no extra chat msg)."""
     uid = callback.from_user.id if callback.from_user else 0
     username = (callback.data or "").split(":", 2)[2]
     if not _owns_service(uid, username):
@@ -1916,25 +1928,76 @@ async def svc_link(callback: CallbackQuery) -> None:
     with get_session() as session:
         sub = repo.get_subscription_by_username(session, username)
         url = (sub.subscription_url or "").strip() if sub else ""
-    if url:
-        await callback.answer()
-        await _send_subscription_link(
-            callback.message,
-            username=username,
-            url=url,
-            caption_prefix="🔗 <b>لینک اشتراک</b>",
-        )
-    else:
+    if not url:
         await callback.answer(
             "لینک در سیستم ذخیره نشده. پس از ساخت/تمدید یا تغییر لینک موجود می‌شود.",
             show_alert=True,
         )
+        return
+    await callback.answer()
+    u = username[:40]
+    text = (
+        f"🔗 <b>لینک اشتراک</b>\n"
+        f"👤 <code>{ltr(username).lstrip(chr(0x200E))}</code>\n\n"
+        f"<code>{url}</code>"
+    )
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 کپی لینک",
+                    copy_text=CopyTextButton(text=url),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⬅️ بازگشت به مشخصات",
+                    callback_data=f"cust:svc:{u}",
+                )
+            ],
+        ]
+    )
+    await _ui_show(callback.message, text, reply_markup=kb, edit=True)
 
 
-@router.callback_query(F.data.startswith("cust:svcchange:"))
+@router.callback_query(F.data.startswith("cust:svcchange:ask:"))
+async def svc_change_link_ask(callback: CallbackQuery) -> None:
+    uid = callback.from_user.id if callback.from_user else 0
+    username = (callback.data or "").split(":")[-1]
+    if not _owns_service(uid, username):
+        await callback.answer("دسترسی ندارید", show_alert=True)
+        return
+    await callback.answer()
+    u = username[:40]
+    await _ui_show(
+        callback.message,
+        "🔐 <b>تغییر لینک</b>\n\n"
+        "با تغییر لینک، لینک قبلی باطل می‌شود و دستگاه‌های متصل قطع می‌شوند.\n"
+        "ادامه می‌دهید؟",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="✅ بله، تغییر بده",
+                        callback_data=f"cust:svcchange:go:{u}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="❌ انصراف",
+                        callback_data=f"cust:svc:{u}",
+                    )
+                ],
+            ]
+        ),
+        edit=True,
+    )
+
+
+@router.callback_query(F.data.startswith("cust:svcchange:go:"))
 async def svc_change_link(callback: CallbackQuery) -> None:
     uid = callback.from_user.id if callback.from_user else 0
-    username = (callback.data or "").split(":", 2)[2]
+    username = (callback.data or "").split(":")[-1]
     if not _owns_service(uid, username):
         await callback.answer("دسترسی ندارید", show_alert=True)
         return
@@ -1946,9 +2009,11 @@ async def svc_change_link(callback: CallbackQuery) -> None:
         vendor_key = vendor.key if vendor else DEFAULT_VENDOR_KEY
     caps = get_vendor_capabilities(vendor_key)
     if caps and not caps.bot_change_link:
-        await callback.message.answer(
+        await _ui_show(
+            callback.message,
             "تغییر لینک برای این فروشنده پشتیبانی نمی‌شود.",
             reply_markup=_service_actions_kb(username),
+            edit=True,
         )
         return
     driver = get_vendor_driver(vendor_key)
@@ -1962,19 +2027,37 @@ async def svc_change_link(callback: CallbackQuery) -> None:
             log.exception("change subscription link failed")
     if url:
         _persist_subscription_url(username, url)
-        await _send_subscription_link(
-            callback.message,
-            username=username,
-            url=url,
-            caption_prefix=(
-                "✅ لینک جدید صادر شد. لینک قبلی دیگر کار نمی‌کند.\n🔗 <b>لینک جدید</b>"
-            ),
+        u = username[:40]
+        text = (
+            "✅ لینک جدید صادر شد. لینک قبلی دیگر کار نمی‌کند.\n"
+            f"🔗 <b>لینک جدید</b>\n"
+            f"👤 <code>{ltr(username).lstrip(chr(0x200E))}</code>\n\n"
+            f"<code>{url}</code>"
         )
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📋 کپی لینک",
+                        copy_text=CopyTextButton(text=url),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="⬅️ بازگشت به مشخصات",
+                        callback_data=f"cust:svc:{u}",
+                    )
+                ],
+            ]
+        )
+        await _ui_show(callback.message, text, reply_markup=kb, edit=True)
     else:
-        await callback.message.answer(
+        await _ui_show(
+            callback.message,
             "لینک جدید هنوز آماده نیست.\n"
             "کمی بعد دوباره «لینک اشتراک» را بزنید یا از پشتیبانی پیگیری کنید.",
             reply_markup=_service_actions_kb(username),
+            edit=True,
         )
 
 
@@ -2458,25 +2541,16 @@ async def _wallet_home_ui(
     uid = uid if uid is not None else (message.from_user.id if message.from_user else 0)
     with get_session() as session:
         bal = repo.get_wallet_toman(session, uid)
-        ledger = repo.list_wallet_ledger(session, uid, limit=5)
         mn, mx = repo.get_wallet_limits(session)
     lines = [
         "💰 <b>کیف پول</b>\n",
-        f"🆔 شناسه تلگرام: <code>{uid}</code>",
+        "🆔 شناسه تلگرام",
+        f"<pre>{uid}</pre>",
         f"💳 موجودی قابل استفاده: <b>{bal:,}</b> تومان",
         f"📉 حداقل شارژ: <b>{mn:,}</b> تومان",
         f"📈 حداکثر شارژ: <b>{mx:,}</b> تومان",
         "⚠️ امکان برداشت وجه از کیف پول وجود ندارد.\n",
     ]
-    if ledger:
-        lines.append("📜 آخرین تراکنش‌ها:")
-        for row in ledger:
-            sign = "+" if row.amount_toman >= 0 else ""
-            when = row.created_at.strftime("%m/%d %H:%M") if row.created_at else "—"
-            lines.append(
-                f"• {sign}{row.amount_toman:,} ت ({_ledger_fa(row.kind)}) "
-                f"→ {row.balance_after:,} | {when}"
-            )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -2602,15 +2676,46 @@ async def _start_wallet_charge(
 # ─── Support ──────────────────────────────────────────────────────────────────
 
 
+def _support_hub_inline() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🎟 ارسال پیام به پشتیبانی",
+                    callback_data="cust:support:new",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🎫 تیکت‌های من",
+                    callback_data="cust:support:tickets",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏠 منوی اصلی",
+                    callback_data="cust:home",
+                )
+            ],
+        ]
+    )
+
+
 @router.message(Command("support"))
 @router.message(F.text.func(lambda t: bool(t) and t in _cust_labels("support")))
 async def support_hint(message: Message, settings: Settings) -> None:
     _track(message)
     uid = message.from_user.id if message.from_user else 0
     _set_flow(uid, "support_hub")
+    # Switch bottom reply keyboard to support window…
     await message.answer(
         _msg("support_hint", support=settings.support_text),
         reply_markup=support_reply_menu(),
+    )
+    # …and mirror the same actions as inline buttons on the page.
+    await message.answer(
+        "از دکمه‌های زیر یا منوی پایین استفاده کنید:",
+        reply_markup=_support_hub_inline(),
     )
 
 
@@ -2690,6 +2795,13 @@ async def cust_support_new(callback: CallbackQuery, settings: Settings) -> None:
         reply_markup=support_reply_menu(),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data == "cust:support:tickets")
+async def cust_support_tickets_inline(callback: CallbackQuery) -> None:
+    """Inline entry to the same tickets list as the support reply keyboard."""
+    await callback.answer()
+    await support_my_tickets(callback.message)
 
 
 @router.callback_query(F.data.startswith("cust:ticket:open:"))

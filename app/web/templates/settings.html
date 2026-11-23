@@ -41,10 +41,10 @@
     <p class="muted small panel-lead">{{ t('settings_reminders_lead') }}</p>
     <div class="form-stack form-2col">
       <label>{{ t('order_ttl') }}
-        <input name="order_ttl" type="number" min="60" value="{{ order_ttl }}" class="num-cell" />
+        <input name="order_ttl_min" type="number" min="1" step="any" value="{{ order_ttl_min }}" class="num-cell" />
       </label>
       <label>{{ t('reminder_delays') }}
-        <input name="reminder_delays" value="{{ reminder_delays }}" dir="ltr" placeholder="300,3600,21600" />
+        <input name="reminder_delays_min" value="{{ reminder_delays_min }}" dir="ltr" placeholder="5,60,360" />
       </label>
     </div>
   </section>
@@ -54,7 +54,7 @@
     <p class="muted small panel-lead">{{ t('settings_userinfo_ttl_lead') }}</p>
     <div class="form-stack">
       <label>{{ t('userinfo_ttl') }}
-        <input name="userinfo_ttl" type="number" min="0" value="{{ userinfo_ttl }}" class="num-cell" />
+        <input name="userinfo_ttl_min" type="number" min="0" step="any" value="{{ userinfo_ttl_min }}" class="num-cell" />
       </label>
     </div>
   </section>
@@ -70,10 +70,27 @@
         <input name="alert_traffic" type="number" min="0" step="any" value="{{ alert_traffic }}" class="num-cell" />
       </label>
       <label>{{ t('life_cool') }}
-        <input name="life_cool" type="number" min="60" value="{{ life_cool }}" class="num-cell" />
+        <input name="life_cool_min" type="number" min="1" step="any" value="{{ life_cool_min }}" class="num-cell" />
       </label>
       <label>{{ t('life_scan') }}
-        <input name="life_scan" type="number" min="60" value="{{ life_scan }}" class="num-cell" />
+        <input name="life_scan_min" type="number" min="1" step="any" value="{{ life_scan_min }}" class="num-cell" />
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('settings_approval') }}</strong></div>
+    <p class="muted small panel-lead">{{ t('settings_approval_lead') }}</p>
+    <div class="form-stack">
+      <label class="chip check-row">
+        <input type="checkbox" name="orders_manual_approval" value="1" {% if orders_manual_approval %}checked{% endif %} />
+        {{ t('orders_manual_approval') }}
+      </label>
+      <label>{{ t('vendor_settle_mode') }}
+        <select name="vendor_settle_mode">
+          <option value="wallet" {% if vendor_settle_mode == 'wallet' %}selected{% endif %}>{{ t('vendor_settle_wallet') }}</option>
+          <option value="card" {% if vendor_settle_mode == 'card' %}selected{% endif %}>{{ t('vendor_settle_card') }}</option>
+        </select>
       </label>
     </div>
   </section>

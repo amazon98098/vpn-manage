@@ -170,6 +170,7 @@ ADMIN_INLINE_MENUS: dict[str, dict[str, Any]] = {
             {"id": "reminders", "label": "🔔 یادآوری و انقضا", "callback": "settings:reminders"},
             {"id": "userinfo_ttl", "label": "⏱ TTL بروزرسانی لینک", "callback": "settings:userinfo_ttl"},
             {"id": "refresh_strategy", "label": "🔄 استراتژی بروزرسانی سرویس", "callback": "settings:refresh_strategy"},
+            {"id": "approval", "label": "✅ تایید سفارش و پرداخت فروشنده", "callback": "settings:approval"},
             {"id": "lifecycle", "label": "📣 هشدار اتمام سرویس", "callback": "settings:lifecycle"},
             {"id": "maintenance", "label": "🛠 حالت تعمیر ربات مشتری", "callback": "settings:maintenance"},
             {"id": "vendors", "label": "🏪 فروشنده‌ها", "callback": "menu:vendor"},
@@ -232,7 +233,7 @@ CUSTOMER_INLINE_MENUS: dict[str, dict[str, Any]] = {
         "items": [
             {"id": "refresh", "label": "🔄 بروزرسانی", "callback": "cust:svcinfo:{u}"},
             {"id": "link", "label": "🔗 لینک اشتراک", "callback": "cust:svclink:{u}"},
-            {"id": "change_link", "label": "🔐 تغییر لینک", "callback": "cust:svcchange:{u}"},
+            {"id": "change_link", "label": "🔐 تغییر لینک", "callback": "cust:svcchange:ask:{u}"},
             {"id": "renew", "label": "♻️ تمدید اشتراک", "callback": "cust:svcrenew:{u}"},
             {"id": "transfer", "label": "🤝 انتقال مالکیت", "callback": "cust:xfer:{u}"},
             {"id": "back_list", "label": "⬅️ بازگشت به لیست", "callback": "cust:svclist"},

@@ -180,7 +180,7 @@ async def run() -> None:
         "هشدارها، صف تمدید/خرید و منوی پایین فعال است."
     )
     if admin_web_url:
-        boot_text += f"\n🌐 پنل ادمین: {admin_web_url}"
+        boot_text += f"\n🌐 پلن ادمین: {admin_web_url}"
     for admin_id in settings.admin_ids:
         try:
             await bot.send_message(

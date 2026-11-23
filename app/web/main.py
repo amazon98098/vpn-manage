@@ -1355,7 +1355,7 @@ def create_app() -> FastAPI:
             result = await customer_bridge.run_on_bot_loop(
                 reject_customer_order(
                     order_id,
-                    reason="سفارش از پنل ادمین رد شد.",
+                    reason="سفارش از پلن ادمین رد شد.",
                     admin_id=0,
                     source="admin_web",
                 )
@@ -1933,6 +1933,13 @@ def create_app() -> FastAPI:
             days_th = repo.get_alert_days_threshold(session)
             traffic_th = repo.get_alert_traffic_mb_threshold(session)
             life_scan = repo.get_lifecycle_scan_interval_seconds(session)
+            from app.utils.duration import format_seconds_en, format_seconds_fa
+
+            life_scan_label = (
+                format_seconds_fa(life_scan)
+                if _lang(request) == "fa"
+                else format_seconds_en(life_scan)
+            )
         return TEMPLATES.TemplateResponse(
             request,
             "almost_out.html",
@@ -1950,6 +1957,7 @@ def create_app() -> FastAPI:
                 days_th=days_th,
                 traffic_th=traffic_th,
                 life_scan=life_scan,
+                life_scan_label=life_scan_label,
                 flash=request.query_params.get("ok"),
             ),
         )
@@ -2395,10 +2403,17 @@ def create_app() -> FastAPI:
             admin_alert_deleted_suppress_hours = (
                 repo.get_admin_vendor_deleted_suppress_hours(session)
             )
+            orders_manual_approval = repo.is_orders_manual_approval(session)
+            vendor_settle_mode = repo.get_vendor_settle_mode(session)
             customer_bot_enabled = repo.is_customer_bot_enabled(session)
             customer_bot_disabled_message = repo.get_customer_bot_disabled_message(
                 session
             )
+        from app.utils.duration import (
+            format_minutes_csv,
+            seconds_to_minutes_value,
+        )
+
         return TEMPLATES.TemplateResponse(
             request,
             "settings.html",
@@ -2411,16 +2426,18 @@ def create_app() -> FastAPI:
                 payment_provider=settings.payment_provider,
                 wallet_min=wallet_min,
                 wallet_max=wallet_max,
-                order_ttl=order_ttl,
-                reminder_delays=",".join(str(d) for d in reminder_delays),
-                userinfo_ttl=userinfo_ttl,
+                order_ttl_min=seconds_to_minutes_value(order_ttl),
+                reminder_delays_min=format_minutes_csv(reminder_delays),
+                userinfo_ttl_min=seconds_to_minutes_value(userinfo_ttl),
                 alert_days=alert_days,
                 alert_traffic=alert_traffic,
-                life_cool=life_cool,
-                life_scan=life_scan,
+                life_cool_min=seconds_to_minutes_value(life_cool),
+                life_scan_min=seconds_to_minutes_value(life_scan),
                 admin_alert_max_repeats=admin_alert_max_repeats,
                 admin_alert_window_hours=admin_alert_window_hours,
                 admin_alert_deleted_suppress_hours=admin_alert_deleted_suppress_hours,
+                orders_manual_approval=orders_manual_approval,
+                vendor_settle_mode=vendor_settle_mode,
                 customer_bot_enabled=customer_bot_enabled,
                 customer_bot_disabled_message=customer_bot_disabled_message,
                 flash=request.query_params.get("ok"),
@@ -2452,23 +2469,22 @@ def create_app() -> FastAPI:
                 repo.set_wallet_limits(session, mn, mx)
             except ValueError:
                 pass
+            from app.utils.duration import minutes_to_seconds, parse_minutes_list
+
             try:
                 repo.set_order_ttl_seconds(
-                    session, int(str(form.get("order_ttl") or "0").replace(",", ""))
+                    session,
+                    minutes_to_seconds(str(form.get("order_ttl_min") or "0")),
                 )
             except ValueError:
                 pass
-            delays_raw = str(form.get("reminder_delays") or "")
-            delay_parts: list[int] = []
-            for part in delays_raw.replace(";", ",").split(","):
-                part = part.strip()
-                if part.isdigit():
-                    delay_parts.append(int(part))
+            delay_parts = parse_minutes_list(str(form.get("reminder_delays_min") or ""))
             if delay_parts:
                 repo.set_reminder_delays_seconds(session, delay_parts)
             try:
                 repo.set_userinfo_ttl_seconds(
-                    session, int(str(form.get("userinfo_ttl") or "0").replace(",", ""))
+                    session,
+                    minutes_to_seconds(str(form.get("userinfo_ttl_min") or "0")),
                 )
             except ValueError:
                 pass
@@ -2486,16 +2502,26 @@ def create_app() -> FastAPI:
                 pass
             try:
                 repo.set_lifecycle_alert_cooldown_seconds(
-                    session, int(float(str(form.get("life_cool") or "0")))
+                    session,
+                    minutes_to_seconds(str(form.get("life_cool_min") or "0")),
                 )
             except ValueError:
                 pass
             try:
                 repo.set_lifecycle_scan_interval_seconds(
-                    session, int(float(str(form.get("life_scan") or "0")))
+                    session,
+                    minutes_to_seconds(str(form.get("life_scan_min") or "0")),
                 )
             except ValueError:
                 pass
+            repo.set_orders_manual_approval(
+                session,
+                str(form.get("orders_manual_approval") or "").strip()
+                in {"1", "on", "true", "yes"},
+            )
+            repo.set_vendor_settle_mode(
+                session, str(form.get("vendor_settle_mode") or "wallet")
+            )
             try:
                 repo.set_admin_vendor_alert_max_repeats(
                     session,

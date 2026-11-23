@@ -850,12 +850,43 @@ class NetPlusRenewDriver:
                     )
                     return DriveResult(True, "payment", payment=accepted)
 
-            # Wallet / pay methods → must click کارت به کارت for a fresh amount
+            # Wallet / pay methods → prefer vendor balance; card only if allowed.
             if card_btn or is_wallet_insufficient(text) or CARD in datas:
                 if not confirmed:
                     # Reaching wallet implies invoice already accepted by NetPlus.
                     confirmed = True
                     water = self._bump_water(water, msg)
+                settle_mode = "card"
+                try:
+                    from app.database.database import get_session
+                    from app.database import repositories as repo
+
+                    with get_session() as session:
+                        settle_mode = repo.get_vendor_settle_mode(session)
+                except Exception:
+                    settle_mode = "card"
+                if settle_mode == "wallet":
+                    # Wait a bit more — balance settle often arrives without card UI.
+                    kind, found, pay = await self._poll_post_confirm(
+                        water=water, timeout=8.0, username=want_user
+                    )
+                    if kind == "payment" and pay:
+                        return DriveResult(True, "payment", payment=pay)
+                    if kind == "vendor_wallet_settled":
+                        return DriveResult(True, "vendor_wallet_settled")
+                    if is_wallet_insufficient(text) or (
+                        found and is_wallet_insufficient(getattr(found, "message", None))
+                    ):
+                        return DriveResult(
+                            False,
+                            "vendor_wallet_insufficient",
+                            error="موجودی فروشنده کافی نیست؛ شارژ موجودی NetPlus لازم است.",
+                        )
+                    return DriveResult(
+                        False,
+                        "vendor_wallet_required",
+                        error="پرداخت فقط از موجودی فروشنده فعال است (کارت‌به‌کارت خاموش).",
+                    )
                 log.info(
                     "TIMING walk step=%s card_branch water=%s", i, water
                 )

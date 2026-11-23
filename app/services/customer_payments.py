@@ -341,6 +341,62 @@ def _kind_fa(kind: str) -> str:
     return kind
 
 
+async def _notify_manual_approval(
+    *,
+    oid: int,
+    tg: int,
+    uname: str,
+    kind: str,
+    price: int,
+    amount_show: str,
+    source: str,
+) -> None:
+    """Ping admins that a paid order needs explicit approve/reject."""
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+    kind_fa = _kind_fa(kind)
+    text = (
+        f"🔔 <b>تراکنش جهت تایید دستی</b>\n"
+        f"سفارش #{oid} — {kind_fa}\n"
+        f"یوزر: <code>{uname}</code>\n"
+        f"مبلغ: {price:,} ت / <code>{amount_show}</code> ریال\n"
+        f"منبع: {source}\n"
+        f"مشتری: <code>{tg}</code>\n"
+        f"نیاز به واکنش ادمین: تایید یا رد"
+    )
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ تایید و صف سرویس",
+                    callback_data=f"corder:ok:{oid}",
+                ),
+                InlineKeyboardButton(
+                    text="🚫 رد با دلیل",
+                    callback_data=f"corder:no:{oid}",
+                ),
+            ]
+        ]
+    )
+    if not customer_bridge.admin_bot:
+        return
+    from app.config import load_settings
+
+    settings = load_settings(require_bot=True)
+    for admin_id in settings.admin_ids:
+        try:
+            sent = await customer_bridge.admin_bot.send_message(
+                admin_id, text, reply_markup=kb
+            )
+            if oid and sent and getattr(sent, "message_id", None):
+                with get_session() as session:
+                    repo.track_admin_order_ui_message(
+                        session, oid, admin_id, int(sent.message_id)
+                    )
+        except Exception:
+            log.exception("manual approval admin notify failed")
+
+
 async def _notify_after_confirm(
     *,
     oid: int,
@@ -428,6 +484,7 @@ async def _apply_paid_order(
         price = order.price_toman
         amount_show = order.amount_rial or amount
         wallet_balance = None
+        fulfill = False
 
         if kind == "wallet":
             wallet_balance, credited = repo.credit_wallet_once_for_order(
@@ -440,16 +497,26 @@ async def _apply_paid_order(
             order.status = "done"
             order.completed_at = datetime.utcnow()
             repo.touch_customer_order(order)
-            fulfill = False
             if not credited:
                 # Already credited earlier — still notify as success/idempotent
                 pass
         else:
-            # Paid create/renew → auto enqueue vendor workflow (no admin click needed)
+            # Paid create/renew — auto-fulfill unless admin enabled manual approval.
             order.status = "awaiting_review"
-            order.note = (order.note or "") + "|ready_fulfill"
+            manual = repo.is_orders_manual_approval(session)
+            if manual:
+                order.note = (order.note or "") + "|manual_approval"
+                fulfill = False
+            else:
+                order.note = (order.note or "") + "|ready_fulfill"
+                fulfill = True
             repo.touch_customer_order(order)
-            fulfill = True
+
+    manual_needed = False
+    with get_session() as session:
+        manual_needed = bool(
+            kind != "wallet" and repo.is_orders_manual_approval(session) and not fulfill
+        )
 
     if kind == "wallet":
         try:
@@ -467,16 +534,36 @@ async def _apply_paid_order(
         except Exception:
             log.exception("cleanup customer pay UI failed order=%s", oid)
 
-    await _notify_after_confirm(
-        oid=oid,
-        tg=tg,
-        uname=uname,
-        kind=kind,
-        price=price,
-        amount_show=amount_show,
-        source=source,
-        wallet_balance=wallet_balance,
-    )
+    if manual_needed:
+        await _notify_manual_approval(
+            oid=oid,
+            tg=tg,
+            uname=uname,
+            kind=kind,
+            price=price,
+            amount_show=amount_show,
+            source=source,
+        )
+        if customer_bridge.customer_bot:
+            try:
+                await customer_bridge.customer_bot.send_message(
+                    tg,
+                    f"✅ پرداخت ثبت شد و برای تایید ادمین ارسال شد.\n"
+                    f"سفارش #{oid} — سرویس <code>{uname}</code>",
+                )
+            except Exception:
+                log.exception("manual-approval customer notice failed order=%s", oid)
+    else:
+        await _notify_after_confirm(
+            oid=oid,
+            tg=tg,
+            uname=uname,
+            kind=kind,
+            price=price,
+            amount_show=amount_show,
+            source=source,
+            wallet_balance=wallet_balance,
+        )
     if fulfill:
         from app.services.customer_fulfill import enqueue_fulfillment
 
