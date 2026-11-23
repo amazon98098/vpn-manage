@@ -579,11 +579,11 @@ class RenewQueue:
         # Operator NetPlus wallet had balance — renew/create finished without card UI.
         if result.ok and result.stage == "vendor_wallet_settled" and not result.payment:
             await self.on_vendor_event(
+                "renew_ok" if kind != "create" else "create_ok",
                 {
-                    "kind": "renew_ok" if kind != "create" else "create_ok",
                     "username": username,
                     "status_text": "",
-                }
+                },
             )
             self._arm_queue_gap()
             self.wake()
