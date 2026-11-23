@@ -3282,6 +3282,38 @@ def list_bot_messages(session: Session) -> list[BotMessage]:
     return list(session.scalars(select(BotMessage).order_by(BotMessage.key.asc())))
 
 
+EDU_ANDROID_V2RAYNG_TITLE = "اتصال در برنامه V2rayNG"
+EDU_ANDROID_V2RAYNG_BODY = (
+    "برای راه‌اندازی اشتراک روی <b>اندروید</b> با برنامه "
+    "<b>V2rayNG</b>، مراحل زیر را به ترتیب انجام دهید:\n\n"
+    "1️⃣ لینک اشتراک را کپی کنید.\n"
+    "2️⃣ وارد برنامه <b>V2rayNG</b> شوید.\n"
+    "3️⃣ گزینه <b>➕</b> را انتخاب کنید.\n"
+    "4️⃣ گزینه <b>دوم</b> را انتخاب کنید.\n"
+    "5️⃣ یک‌بار برنامه را کامل ببندید و مجدد باز کنید.\n"
+    "6️⃣ سپس از منوی سه‌نقطهٔ بالای صفحه، گزینهٔ آخر را بزنید و "
+    "<b>بروزرسانی</b> را انجام دهید.\n"
+    "7️⃣ بعد از بروزرسانی، سرورها مشاهده خواهند شد.\n"
+    "8️⃣ اگر بعد از بروزرسانی سرورها بالا نیامدند، اینترنت را عوض کنید "
+    "و با اینترنت دیگری دوباره بروزرسانی را انجام دهید.\n\n"
+    "✨ پس از دیدن سرورها، یکی را انتخاب کنید و اتصال را روشن کنید."
+)
+
+EDU_IOS_V2BOX_TITLE = "اتصال در برنامه V2Box"
+EDU_IOS_V2BOX_BODY = (
+    "برای راه‌اندازی اشتراک روی <b>آیفون</b> با برنامه "
+    "<b>V2Box</b>، مراحل زیر را به ترتیب انجام دهید:\n\n"
+    "1️⃣ لینک اشتراک را کپی کنید.\n"
+    "2️⃣ وارد برنامه <b>V2Box</b> شوید.\n"
+    "3️⃣ از قسمت پایین صفحه، منوی <b>Configs</b> را انتخاب کنید.\n"
+    "4️⃣ گزینه <b>➕</b> را انتخاب کنید.\n"
+    "5️⃣ گزینه <b>اول</b> را انتخاب کنید.\n"
+    "6️⃣ سرورها قابل مشاهده هستند.\n"
+    "7️⃣ سپس سرور موردنظر را انتخاب کنید و فیلترشکن را روشن کنید.\n\n"
+    "✨ اگر لیست خالی بود، یک‌بار از برنامه خارج شوید و دوباره وارد شوید."
+)
+
+
 def ensure_default_education(session: Session) -> None:
     def _ensure_root(title: str, sort_order: int) -> EducationCategory:
         row = session.scalar(
@@ -3297,6 +3329,38 @@ def ensure_default_education(session: Session) -> None:
         session.add(row)
         session.flush()
         return row
+
+    def _upsert_guide_lesson(
+        category_id: int,
+        *,
+        title: str,
+        body: str,
+        match_tokens: tuple[str, ...],
+    ) -> None:
+        lessons = list_education_lessons(session, category_id, enabled_only=False)
+        target = None
+        for les in lessons:
+            t = (les.title or "").lower()
+            if any(tok.lower() in t for tok in match_tokens):
+                target = les
+                break
+        if target is None and len(lessons) == 1:
+            target = lessons[0]
+        if target is not None:
+            target.title = title
+            target.body = body
+            target.enabled = True
+            target.sort_order = 0
+            return
+        session.add(
+            EducationLesson(
+                category_id=category_id,
+                title=title,
+                body=body,
+                sort_order=0,
+                enabled=True,
+            )
+        )
 
     start = _ensure_root("شروع کار", 0)
     if not list_education_lessons(session, start.id, enabled_only=False):
@@ -3316,36 +3380,20 @@ def ensure_default_education(session: Session) -> None:
         )
 
     ios = _ensure_root("آیفون / iOS", 10)
-    if not list_education_lessons(session, ios.id, enabled_only=False):
-        session.add(
-            EducationLesson(
-                category_id=ios.id,
-                title="اتصال در آیفون",
-                body=(
-                    "۱) یکی از کلاینت‌های پیشنهادی (مثل Streisand / V2Box) را نصب کنید.\n"
-                    "۲) لینک اشتراک را کپی کنید یا QR را اسکن کنید.\n"
-                    "۳) پروفایل را Import کنید و اتصال را روشن کنید."
-                ),
-                sort_order=0,
-                enabled=True,
-            )
-        )
+    _upsert_guide_lesson(
+        ios.id,
+        title=EDU_IOS_V2BOX_TITLE,
+        body=EDU_IOS_V2BOX_BODY,
+        match_tokens=("v2box", "آیفون", "iphone", "ios", "اتصال"),
+    )
 
     android = _ensure_root("اندروید", 20)
-    if not list_education_lessons(session, android.id, enabled_only=False):
-        session.add(
-            EducationLesson(
-                category_id=android.id,
-                title="اتصال در اندروید",
-                body=(
-                    "۱) یکی از کلاینت‌های پیشنهادی (مثل v2rayNG) را نصب کنید.\n"
-                    "۲) لینک اشتراک را کپی کنید یا QR را اسکن کنید.\n"
-                    "۳) پروفایل را Import کنید و اتصال را روشن کنید."
-                ),
-                sort_order=0,
-                enabled=True,
-            )
-        )
+    _upsert_guide_lesson(
+        android.id,
+        title=EDU_ANDROID_V2RAYNG_TITLE,
+        body=EDU_ANDROID_V2RAYNG_BODY,
+        match_tokens=("v2ray", "اندروید", "android", "اتصال"),
+    )
     session.flush()
 
 

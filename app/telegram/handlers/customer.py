@@ -599,6 +599,37 @@ async def guide_start(message: Message) -> None:
     await _show_education_menu(message)
 
 
+async def _show_education_lesson(
+    message: Message,
+    lesson_id: int,
+    *,
+    edit: bool = False,
+    back_callback: str | None = None,
+) -> bool:
+    """Render one education lesson; return False if missing/disabled."""
+    with get_session() as session:
+        lesson = repo.get_education_lesson(session, lesson_id)
+        if not lesson or not lesson.enabled:
+            return False
+        title = lesson.title
+        body = lesson.body
+        cat_id = lesson.category_id
+    back_cb = back_callback or f"cust:edu:cat:{cat_id}"
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="⬅️ بازگشت", callback_data=back_cb)],
+            [InlineKeyboardButton(text="🏠 منوی اصلی", callback_data="cust:home")],
+        ]
+    )
+    await _ui_show(
+        message,
+        f"📚 <b>{title}</b>\n\n{body}",
+        reply_markup=kb,
+        edit=edit,
+    )
+    return True
+
+
 async def _show_education_menu(
     message: Message, *, parent_id: int | None = None, edit: bool = False
 ) -> None:
@@ -617,6 +648,20 @@ async def _show_education_menu(
             cat = repo.get_education_category(session, parent_id)
             if cat and cat.parent_id:
                 back_cb = f"cust:edu:cat:{cat.parent_id}"
+        # Android / iPhone: one guide → open it immediately with the app title.
+        if parent_id is not None and not cats and len(lessons) == 1:
+            lesson_id = lessons[0].id
+            # Avoid looping: back must leave this single-lesson category.
+            auto_back = back_cb
+        else:
+            lesson_id = None
+            auto_back = None
+    if lesson_id is not None:
+        ok = await _show_education_lesson(
+            message, lesson_id, edit=edit, back_callback=auto_back
+        )
+        if ok:
+            return
     rows: list[list[InlineKeyboardButton]] = []
     for c in cats:
         rows.append(
@@ -667,31 +712,10 @@ async def edu_category(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith("cust:edu:lesson:"))
 async def edu_lesson(callback: CallbackQuery) -> None:
     lesson_id = int((callback.data or "").rsplit(":", 1)[1])
-    with get_session() as session:
-        lesson = repo.get_education_lesson(session, lesson_id)
-        if not lesson or not lesson.enabled:
-            await callback.answer("یافت نشد", show_alert=True)
-            return
-        title = lesson.title
-        body = lesson.body
-        cat_id = lesson.category_id
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="⬅️ بازگشت",
-                    callback_data=f"cust:edu:cat:{cat_id}",
-                )
-            ],
-            [InlineKeyboardButton(text="🏠 منوی اصلی", callback_data="cust:home")],
-        ]
-    )
-    await _ui_show(
-        callback.message,
-        f"📚 <b>{title}</b>\n\n{body}",
-        reply_markup=kb,
-        edit=True,
-    )
+    ok = await _show_education_lesson(callback.message, lesson_id, edit=True)
+    if not ok:
+        await callback.answer("یافت نشد", show_alert=True)
+        return
     await callback.answer()
 
 
@@ -1518,9 +1542,18 @@ async def cust_home(callback: CallbackQuery) -> None:
     await safe_answer(callback)
     uid = callback.from_user.id if callback.from_user else 0
     _set_flow(uid, "")
-    # Restore main bottom keyboard (e.g. leaving support submenu).
-    await callback.message.answer("🏠 منوی اصلی", reply_markup=customer_menu())
     await _show_customer_home(callback.message, edit=True)
+
+
+async def _show_support_hub(
+    message: Message, settings: Settings, *, edit: bool = False
+) -> None:
+    """Support options only in chat (inline); bottom menu stays the main keyboard."""
+    text = (
+        f"{_msg('support_hint', support=settings.support_text)}\n\n"
+        "از دکمه‌های زیر یکی را انتخاب کنید:"
+    )
+    await _ui_show(message, text, reply_markup=_support_hub_inline(), edit=edit)
 
 
 @router.callback_query(F.data.startswith("cust:go:"))
@@ -1550,18 +1583,8 @@ async def cust_go(callback: CallbackQuery, settings: Settings) -> None:
         await _show_education_menu(callback.message, edit=True)
         return
     if action == "support":
-        # Reply keyboard swap needs a new message; also show inline on page.
-        await callback.message.answer(
-            _msg("support_hint", support=settings.support_text),
-            reply_markup=support_reply_menu(),
-        )
         _set_flow(uid, "support_hub")
-        await _ui_show(
-            callback.message,
-            "از دکمه‌های زیر یا منوی پایین استفاده کنید:",
-            reply_markup=_support_hub_inline(),
-            edit=True,
-        )
+        await _show_support_hub(callback.message, settings, edit=True)
         return
     await _show_customer_home(callback.message, edit=True)
 
@@ -2707,20 +2730,17 @@ async def support_hint(message: Message, settings: Settings) -> None:
     _track(message)
     uid = message.from_user.id if message.from_user else 0
     _set_flow(uid, "support_hub")
-    # Switch bottom reply keyboard to support window…
+    # Keep main bottom keyboard; show support actions only in this chat message.
     await message.answer(
-        _msg("support_hint", support=settings.support_text),
-        reply_markup=support_reply_menu(),
-    )
-    # …and mirror the same actions as inline buttons on the page.
-    await message.answer(
-        "از دکمه‌های زیر یا منوی پایین استفاده کنید:",
+        f"{_msg('support_hint', support=settings.support_text)}\n\n"
+        "از دکمه‌های زیر یکی را انتخاب کنید:",
         reply_markup=_support_hub_inline(),
     )
 
 
 @router.message(F.text.func(lambda t: bool(t) and t in _support_labels("back")))
 async def support_back_to_menu(message: Message) -> None:
+    """Legacy support reply-keyboard «back» — keep main menu, clear support flow."""
     uid = message.from_user.id if message.from_user else 0
     flow = _get_flow(uid)
     if flow.startswith("support") or flow.startswith("ticket:"):
@@ -2735,7 +2755,7 @@ async def support_send_start(message: Message, settings: Settings) -> None:
     _set_flow(uid, "support_subject")
     await message.answer(
         _msg("support_ask_subject", max=SUPPORT_SUBJECT_MAX),
-        reply_markup=support_reply_menu(),
+        reply_markup=customer_menu(),
     )
 
 
@@ -2749,7 +2769,7 @@ async def support_my_tickets(message: Message) -> None:
     if not tickets:
         await message.answer(
             "🎫 تیکتی ندارید.\nاز «ارسال پیام به پشتیبانی» تیکت جدید بسازید.",
-            reply_markup=support_reply_menu(),
+            reply_markup=_support_hub_inline(),
         )
         return
     lines = ["🎫 <b>تیکت‌های من</b>\nیک تیکت را انتخاب کنید:"]
@@ -2792,14 +2812,14 @@ async def cust_support_new(callback: CallbackQuery, settings: Settings) -> None:
     _set_flow(uid, "support_subject")
     await callback.message.answer(
         _msg("support_ask_subject", max=SUPPORT_SUBJECT_MAX),
-        reply_markup=support_reply_menu(),
+        reply_markup=customer_menu(),
     )
     await callback.answer()
 
 
 @router.callback_query(F.data == "cust:support:tickets")
 async def cust_support_tickets_inline(callback: CallbackQuery) -> None:
-    """Inline entry to the same tickets list as the support reply keyboard."""
+    """Inline entry to the tickets list (chat-only; bottom menu unchanged)."""
     await callback.answer()
     await support_my_tickets(callback.message)
 
@@ -2874,7 +2894,7 @@ async def cust_ticket_resume(callback: CallbackQuery) -> None:
     _set_flow(uid, f"ticket:{ticket_id}")
     await callback.message.answer(
         f"💬 ادامه گفتگو در تیکت #{ticket_id}\nپیام بعدی شما ارسال می‌شود.",
-        reply_markup=support_reply_menu(),
+        reply_markup=customer_menu(),
     )
     await callback.answer()
 
@@ -3291,7 +3311,7 @@ async def text_flow(message: Message, settings: Settings) -> None:
         if not subject:
             await message.answer(
                 _msg("support_ask_subject", max=SUPPORT_SUBJECT_MAX),
-                reply_markup=support_reply_menu(),
+                reply_markup=customer_menu(),
             )
             return
         if len(subject) > SUPPORT_SUBJECT_MAX:
@@ -3301,14 +3321,14 @@ async def text_flow(message: Message, settings: Settings) -> None:
                     max=SUPPORT_SUBJECT_MAX,
                     n=len(subject),
                 ),
-                reply_markup=support_reply_menu(),
+                reply_markup=customer_menu(),
             )
             return
         _set_draft(uid, {"support_subject": subject})
         _set_flow(uid, "support_body")
         await message.answer(
             _msg("support_ask_body", subject=subject),
-            reply_markup=support_reply_menu(),
+            reply_markup=customer_menu(),
         )
         return
 
@@ -3319,7 +3339,7 @@ async def text_flow(message: Message, settings: Settings) -> None:
         if not body:
             await message.answer(
                 _msg("support_ask_body", subject=subject),
-                reply_markup=support_reply_menu(),
+                reply_markup=customer_menu(),
             )
             return
         with get_session() as session:
@@ -3363,7 +3383,7 @@ async def text_flow(message: Message, settings: Settings) -> None:
             f"ارسال شد ✅ تیکت #{ticket_id}\n"
             "منتظر پاسخ پشتیبانی باشید.\n"
             "می‌توانید همین‌جا ادامه پیام بفرستید یا از «تیکت‌های من» ببینید.",
-            reply_markup=support_reply_menu(),
+            reply_markup=_support_hub_inline(),
         )
         return
 
@@ -3372,7 +3392,7 @@ async def text_flow(message: Message, settings: Settings) -> None:
         _set_flow(uid, "support_subject")
         await message.answer(
             _msg("support_ask_subject", max=SUPPORT_SUBJECT_MAX),
-            reply_markup=support_reply_menu(),
+            reply_markup=customer_menu(),
         )
         return
 
