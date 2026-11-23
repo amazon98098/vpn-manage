@@ -117,6 +117,12 @@ class CustomerPaymentWatcher:
         await self._poll_aban()
         if (self.settings.payment_provider or "").lower() == "variz":
             await self._poll_variz()
+        try:
+            from app.services.vendor_direct_pay import maybe_forward_stale_receipts
+
+            await maybe_forward_stale_receipts()
+        except Exception:
+            log.exception("vendor_direct receipt forward tick failed")
         await self._send_reminders()
         await self._expire_orders()
 

@@ -170,7 +170,7 @@ ADMIN_INLINE_MENUS: dict[str, dict[str, Any]] = {
             {"id": "reminders", "label": "🔔 یادآوری و انقضا", "callback": "settings:reminders"},
             {"id": "userinfo_ttl", "label": "⏱ TTL بروزرسانی لینک", "callback": "settings:userinfo_ttl"},
             {"id": "refresh_strategy", "label": "🔄 استراتژی بروزرسانی سرویس", "callback": "settings:refresh_strategy"},
-            {"id": "approval", "label": "✅ تایید سفارش و پرداخت فروشنده", "callback": "settings:approval"},
+            {"id": "approval", "label": "✅ تایید سفارش و کارت فروشنده", "callback": "settings:approval"},
             {"id": "lifecycle", "label": "📣 هشدار اتمام سرویس", "callback": "settings:lifecycle"},
             {"id": "maintenance", "label": "🛠 حالت تعمیر ربات مشتری", "callback": "settings:maintenance"},
             {"id": "vendors", "label": "🏪 فروشنده‌ها", "callback": "menu:vendor"},

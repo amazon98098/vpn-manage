@@ -216,10 +216,22 @@ def parse_netplus(text: str, buttons: list[list[dict[str, str]]] | None = None) 
         )
 
     if "تراکنش شما توسط ربات تایید" in t:
-        return ParsedMessage(kind="tx_bot_ok", notify=False, raw_summary="تایید تراکنش")
+        amount_rial = to_int(_field(t, r"مبلغ(?:\s*دقیق)?\s*:\s*([\d,]+)\s*ریال"))
+        if amount_rial is None:
+            amount_rial = to_int(_field(t, r"([\d,]+)\s*ریال"))
+        amount_toman = to_int(_field(t, r"([\d,]+)\s*تومان"))
+        return ParsedMessage(
+            kind="tx_bot_ok",
+            amount_rial=amount_rial,
+            amount_toman=amount_toman,
+            notify=False,
+            raw_summary="تایید تراکنش",
+        )
 
     if "به کیف پول شما واریز" in t or "به موجودی کیف پول" in t:
         amount = to_int(_field(t, r"مبلغ\s+([\d,]+)\s+تومان"))
+        if amount is None:
+            amount = to_int(_field(t, r"([\d,]+)\s*تومان"))
         return ParsedMessage(
             kind="wallet_credit",
             amount_toman=amount,

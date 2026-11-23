@@ -86,12 +86,14 @@
         <input type="checkbox" name="orders_manual_approval" value="1" {% if orders_manual_approval %}checked{% endif %} />
         {{ t('orders_manual_approval') }}
       </label>
-      <label>{{ t('vendor_settle_mode') }}
-        <select name="vendor_settle_mode">
-          <option value="wallet" {% if vendor_settle_mode == 'wallet' %}selected{% endif %}>{{ t('vendor_settle_wallet') }}</option>
-          <option value="card" {% if vendor_settle_mode == 'card' %}selected{% endif %}>{{ t('vendor_settle_card') }}</option>
-        </select>
+      <label class="chip check-row">
+        <input type="checkbox" name="direct_vendor_card_pay" value="1" {% if direct_vendor_card_pay %}checked{% endif %} />
+        {{ t('direct_vendor_card_pay') }}
       </label>
+      <label>{{ t('direct_vendor_card_usernames') }}
+        <textarea name="direct_vendor_card_usernames" rows="3" dir="ltr" placeholder="user1, user2">{{ direct_vendor_card_usernames }}</textarea>
+      </label>
+      <p class="muted small">{{ t('direct_vendor_card_usernames_lead') }}</p>
     </div>
   </section>
 

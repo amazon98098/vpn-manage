@@ -850,43 +850,12 @@ class NetPlusRenewDriver:
                     )
                     return DriveResult(True, "payment", payment=accepted)
 
-            # Wallet / pay methods → prefer vendor balance; card only if allowed.
+            # Wallet / pay methods → click کارت به کارت for a fresh amount
             if card_btn or is_wallet_insufficient(text) or CARD in datas:
                 if not confirmed:
                     # Reaching wallet implies invoice already accepted by NetPlus.
                     confirmed = True
                     water = self._bump_water(water, msg)
-                settle_mode = "card"
-                try:
-                    from app.database.database import get_session
-                    from app.database import repositories as repo
-
-                    with get_session() as session:
-                        settle_mode = repo.get_vendor_settle_mode(session)
-                except Exception:
-                    settle_mode = "card"
-                if settle_mode == "wallet":
-                    # Wait a bit more — balance settle often arrives without card UI.
-                    kind, found, pay = await self._poll_post_confirm(
-                        water=water, timeout=8.0, username=want_user
-                    )
-                    if kind == "payment" and pay:
-                        return DriveResult(True, "payment", payment=pay)
-                    if kind == "vendor_wallet_settled":
-                        return DriveResult(True, "vendor_wallet_settled")
-                    if is_wallet_insufficient(text) or (
-                        found and is_wallet_insufficient(getattr(found, "message", None))
-                    ):
-                        return DriveResult(
-                            False,
-                            "vendor_wallet_insufficient",
-                            error="موجودی فروشنده کافی نیست؛ شارژ موجودی NetPlus لازم است.",
-                        )
-                    return DriveResult(
-                        False,
-                        "vendor_wallet_required",
-                        error="پرداخت فقط از موجودی فروشنده فعال است (کارت‌به‌کارت خاموش).",
-                    )
                 log.info(
                     "TIMING walk step=%s card_branch water=%s", i, water
                 )
@@ -1346,6 +1315,105 @@ class NetPlusRenewDriver:
                 )
             except Exception as exc:
                 log.exception("drive_create failed for %s", username)
+                return DriveResult(False, "exception", error=str(exc))
+
+    async def drive_wallet_topup(self, amount_toman: int) -> DriveResult:
+        """Open NetPlus wallet → افزایش موجودی → enter toman → return card/amount.
+
+        Does **not** click «پرداخت کردم»; caller shows card to the customer.
+        """
+        amount = max(0, int(amount_toman or 0))
+        if amount < 10000:
+            return DriveResult(
+                False,
+                "amount_too_low",
+                error="مبلغ افزایش موجودی NetPlus حداقل ۱۰٬۰۰۰ تومان است.",
+            )
+        async with self.lock:
+            try:
+                entity = await self.ensure_entity()
+                latest = (await self.client.get_messages(entity, limit=1))[0]
+                water = int(latest.id) if latest else 0
+
+                await self.send_text("/start")
+                wallet = None
+                for label in (
+                    "🏦 کیف پول + شارژ",
+                    "کیف پول + شارژ",
+                    "💰 کیف پول",
+                    "کیف پول",
+                ):
+                    wallet = await self.send_text(label)
+                    if wallet and (
+                        find_data(wallet, "Add_Balance", exact=True)
+                        or "افزایش موجودی" in (wallet.message or "")
+                        or find_card_button(wallet)
+                        or is_payment(wallet)
+                    ):
+                        break
+                if not wallet:
+                    return DriveResult(False, "no_wallet", error="FAIL_WALLET_OPEN")
+                wallet = await self._await_stable(wallet, timeout=2.0) or wallet
+
+                if is_payment(wallet):
+                    return DriveResult(
+                        True, "payment", payment=self._payment_from_msg(wallet)
+                    )
+
+                add = wallet
+                if find_data(wallet, "Add_Balance", exact=True):
+                    add = await self.click_data(wallet, "Add_Balance") or wallet
+                else:
+                    # Fallback: any button mentioning top-up
+                    clicked = None
+                    for b in flat_buttons(wallet):
+                        t = b.get("text") or ""
+                        d = b.get("callback_data") or ""
+                        if "افزایش" in t or "Add_Balance" in d or "add_balance" in d.lower():
+                            clicked = d
+                            break
+                    if clicked:
+                        add = await self.click_data(wallet, clicked) or wallet
+                add = await self._await_stable(add, timeout=2.0) or add
+
+                before = (await self.client.get_messages(entity, limit=1))[0].id
+                await self.client.send_message(entity, str(amount))
+                after_amt = await self.wait_bot(before, timeout=18.0)
+                after_amt = await self._await_stable(after_amt, timeout=2.5) or after_amt
+                if after_amt and detect_vendor_error(after_amt.message):
+                    return DriveResult(
+                        False,
+                        "vendor_error",
+                        error=detect_vendor_error(after_amt.message),
+                    )
+
+                gate = max(water, int(after_amt.id) if after_amt else 0)
+                # Some flows land straight on payment; others need کارت به کارت.
+                if after_amt and is_payment(after_amt):
+                    return DriveResult(
+                        True, "payment", payment=self._payment_from_msg(after_amt)
+                    )
+                if after_amt and find_card_button(after_amt):
+                    return await self._click_card_to_payment(after_amt, after_id=gate)
+                # Poll a bit for payment / methods screen
+                kind, found, pay = await self._poll_post_confirm(
+                    water=gate, timeout=12.0, username=None
+                )
+                if kind == "payment" and pay:
+                    return DriveResult(True, "payment", payment=pay)
+                if found and is_payment(found):
+                    return DriveResult(
+                        True, "payment", payment=self._payment_from_msg(found)
+                    )
+                if found and find_card_button(found):
+                    return await self._click_card_to_payment(found, after_id=gate)
+                return DriveResult(
+                    False,
+                    "no_payment_after_topup",
+                    error="بعد از وارد کردن مبلغ، اطلاعات کارت NetPlus نیامد.",
+                )
+            except Exception as exc:
+                log.exception("drive_wallet_topup failed amount=%s", amount)
                 return DriveResult(False, "exception", error=str(exc))
 
     async def click_receipt(self, receipt_callback: str, payment_message_id: int | None) -> bool:

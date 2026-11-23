@@ -277,7 +277,10 @@ def _card(settings: Settings) -> tuple[str, str]:
         )
 
 
-def _can_take_payment(settings: Settings) -> bool:
+def _can_take_payment(settings: Settings, *, username: str | None = None) -> bool:
+    with get_session() as session:
+        if username and repo.is_direct_vendor_card_for_username(session, username):
+            return True
     provider = (settings.payment_provider or "").lower()
     if provider == "aban" and aban_enabled(settings):
         return True
@@ -361,6 +364,7 @@ def _c2c_instructions(
     checkout_url: str | None = None,
     expires_at: datetime | None = None,
     order_id: int | None = None,
+    vendor_direct: bool = False,
 ) -> str:
     _ = expires_at, order_id
     lines = [
@@ -376,11 +380,24 @@ def _c2c_instructions(
         "",
         "👆 برای کپی، روی مبلغ یا شماره کارت بزنید.",
         "",
-        "✅ با واریز مبلغ دقیق، پرداخت شما لحظه‌ای و خودکار تأیید می‌شود؛ نیازی به ارسال رسید نیست.",
-        "",
-        "🔴 اگر مبلغ را رند واریز کردید، تأیید دستی زمان می‌برد. نیازی به واریز مابه‌التفاوت نیست؛ لطفاً منتظر تأیید بمانید.",
     ]
-    if checkout_url:
+    if vendor_direct:
+        lines.extend(
+            [
+                "📤 بعد از واریز، حتماً <b>رسید پرداخت</b> را با دکمه زیر ارسال کنید.",
+                "",
+                "⏳ اگر تا چند دقیقه پرداخت خودکار تایید نشد، رسید شما برای پیگیری ارسال می‌شود.",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "✅ با واریز مبلغ دقیق، پرداخت شما لحظه‌ای و خودکار تأیید می‌شود؛ نیازی به ارسال رسید نیست.",
+                "",
+                "🔴 اگر مبلغ را رند واریز کردید، تأیید دستی زمان می‌برد. نیازی به واریز مابه‌التفاوت نیست؛ لطفاً منتظر تأیید بمانید.",
+            ]
+        )
+    if checkout_url and not vendor_direct:
         lines.extend(["", "می‌توانید از دکمه «صفحه پرداخت» هم استفاده کنید."])
     return "\n".join(lines)
 
@@ -533,7 +550,37 @@ async def notify_wallet_credited(
 
 
 async def _send_pay_for_order(message: Message, settings: Settings, order_id: int) -> None:
-    await _attach_gateway_if_possible(settings, order_id)
+    vendor_direct = False
+    with get_session() as session:
+        order0 = repo.get_customer_order(session, order_id)
+        if not order0:
+            await message.answer("سفارش یافت نشد.")
+            return
+        uname0 = order0.service_username
+        vendor_direct = (
+            order0.kind in ("create", "renew")
+            and repo.is_direct_vendor_card_for_username(session, uname0)
+        )
+
+    if vendor_direct:
+        wait = await message.answer(
+            "⏳ در حال آماده‌سازی اطلاعات کارت برای پرداخت…\nلطفاً چند لحظه صبر کنید."
+        )
+        _track_order_ui_message(order_id, wait.message_id if wait else None)
+        from app.services.vendor_direct_pay import prepare_vendor_direct_payment
+
+        prep = await prepare_vendor_direct_payment(order_id)
+        if not prep.get("ok"):
+            await message.answer(
+                "آماده‌سازی پرداخت مستقیم فروشنده ناموفق بود.\n"
+                f"جزئیات: {prep.get('error') or '—'}\n"
+                "لطفاً کمی بعد دوباره تلاش کنید یا به پشتیبانی پیام دهید.",
+                reply_markup=customer_menu(),
+            )
+            return
+    else:
+        await _attach_gateway_if_possible(settings, order_id)
+
     local_card, local_holder = _card(settings)
     with get_session() as session:
         order = repo.get_customer_order(session, order_id)
@@ -543,12 +590,13 @@ async def _send_pay_for_order(message: Message, settings: Settings, order_id: in
         if not order.instructions_at:
             order.instructions_at = datetime.utcnow()
             repo.touch_customer_order(order)
-        checkout = order.checkout_url
-        card = order.pay_card_number or local_card
-        holder = order.pay_card_holder or local_holder
+        checkout = None if vendor_direct else order.checkout_url
+        card = order.pay_card_number or (None if vendor_direct else local_card)
+        holder = order.pay_card_holder or (None if vendor_direct else local_holder)
         amount = order.amount_rial or ""
         applied = int(order.wallet_applied_toman or 0)
         expires_at = order.expires_at
+        is_vd = repo.order_is_vendor_direct(order) or vendor_direct
         kb = _payment_kb(order.id, amount, card or "", checkout_url=checkout)
         text = _c2c_instructions(
             amount_rial=amount,
@@ -557,8 +605,8 @@ async def _send_pay_for_order(message: Message, settings: Settings, order_id: in
             checkout_url=checkout,
             expires_at=expires_at,
             order_id=order.id,
+            vendor_direct=is_vd,
         )
-        # Wallet deduction is announced once by the pay handler — avoid duplicate line here
         oid = order.id
         _ = applied
     if not card and not checkout:
@@ -1200,7 +1248,9 @@ async def _execute_shop_pay(
                 await callback.answer("موجودی کیف پول کافی نیست", show_alert=True)
                 return
             remain_preview = price - apply
-            if remain_preview > 0 and not _can_take_payment(settings):
+            if remain_preview > 0 and not _can_take_payment(
+                settings, username=username
+            ):
                 card, _ = _card(settings)
                 if not card:
                     await callback.answer(
@@ -3078,12 +3128,15 @@ async def on_receipt_media(message: Message, settings: Settings) -> None:
             blocked_msg = repo.get_bot_message(session, "receipt_rejected_expired")
             order = None
         resubmit = False
+        vendor_direct_receipt = False
         if order:
+            vendor_direct_receipt = repo.order_is_vendor_direct(order)
             if order.status == "awaiting_review":
                 resubmit = True
             else:
                 order.status = "awaiting_review"
-                order.pay_source = "customer_receipt"
+                if not vendor_direct_receipt:
+                    order.pay_source = "customer_receipt"
                 repo.touch_customer_order(order)
             oid = order.id
             uname = order.service_username
@@ -3117,7 +3170,13 @@ async def on_receipt_media(message: Message, settings: Settings) -> None:
                 ]
             )
             received = repo.get_bot_message(session, "receipt_received")
-            if resubmit:
+            if vendor_direct_receipt:
+                received = (
+                    "✅ رسید دریافت شد.\n"
+                    "در حال بررسی تایید پرداخت… "
+                    "اگر تا حدود ۳ دقیقه خودکار تایید نشد، رسید برای پیگیری ارسال می‌شود."
+                )
+            elif resubmit:
                 received = (
                     "✅ رسید جدید دریافت شد و جایگزین/تکمیل بررسی قبلی شد.\n"
                     "نتیجه پس از بررسی اعلام می‌شود."
@@ -3139,15 +3198,36 @@ async def on_receipt_media(message: Message, settings: Settings) -> None:
         await message.answer(blocked_msg, reply_markup=customer_menu())
         return
 
+    if oid and vendor_direct_receipt:
+        try:
+            from app.services.vendor_direct_pay import store_customer_receipt_bytes
+
+            file_bytes = b""
+            filename = "receipt.jpg"
+            if message.photo:
+                file = await message.bot.get_file(message.photo[-1].file_id)
+                buf = await message.bot.download_file(file.file_path)
+                file_bytes = buf.read() if hasattr(buf, "read") else bytes(buf)
+            elif message.document:
+                file = await message.bot.get_file(message.document.file_id)
+                buf = await message.bot.download_file(file.file_path)
+                file_bytes = buf.read() if hasattr(buf, "read") else bytes(buf)
+                filename = message.document.file_name or "receipt.bin"
+            if file_bytes:
+                store_customer_receipt_bytes(oid, file_bytes, filename=filename)
+        except Exception:
+            log.exception("store vendor_direct receipt failed order=%s", oid)
+
     if oid:
         kind_fa = {
             "wallet": "شارژ کیف پول",
             "create": "خرید",
             "renew": "تمدید",
         }.get(kind, kind)
+        vd_tag = " · پرداخت مستقیم فروشنده" if vendor_direct_receipt else ""
         caption = (
             f"💳 <b>تراکنش جهت تایید</b>"
-            f"{' — ارسال مجدد' if resubmit else ''}\n"
+            f"{' — ارسال مجدد' if resubmit else ''}{vd_tag}\n"
             f"سفارش #{oid} — {kind_fa}\n"
             f"یوزر: <code>{uname}</code>\n"
             f"مبلغ: {price:,} ت / <code>{amount}</code> ریال\n"

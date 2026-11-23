@@ -229,6 +229,16 @@ class VendorChatListener:
                     "Failed to advance renew job from %s event", self.vendor_key
                 )
 
+        if parsed.kind in {"wallet_credit", "tx_bot_ok"}:
+            try:
+                from app.services.vendor_direct_pay import try_confirm_from_vendor_event
+
+                await try_confirm_from_vendor_event(parsed.kind, payload)
+            except Exception:
+                log.exception(
+                    "Failed vendor-direct confirm from %s event", self.vendor_key
+                )
+
         if should_notify:
             try:
                 await self.notify(

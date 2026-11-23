@@ -2404,7 +2404,10 @@ def create_app() -> FastAPI:
                 repo.get_admin_vendor_deleted_suppress_hours(session)
             )
             orders_manual_approval = repo.is_orders_manual_approval(session)
-            vendor_settle_mode = repo.get_vendor_settle_mode(session)
+            direct_vendor_card_pay = repo.is_direct_vendor_card_pay_global(session)
+            direct_vendor_card_usernames = ", ".join(
+                repo.get_direct_vendor_card_usernames(session)
+            )
             customer_bot_enabled = repo.is_customer_bot_enabled(session)
             customer_bot_disabled_message = repo.get_customer_bot_disabled_message(
                 session
@@ -2437,7 +2440,8 @@ def create_app() -> FastAPI:
                 admin_alert_window_hours=admin_alert_window_hours,
                 admin_alert_deleted_suppress_hours=admin_alert_deleted_suppress_hours,
                 orders_manual_approval=orders_manual_approval,
-                vendor_settle_mode=vendor_settle_mode,
+                direct_vendor_card_pay=direct_vendor_card_pay,
+                direct_vendor_card_usernames=direct_vendor_card_usernames,
                 customer_bot_enabled=customer_bot_enabled,
                 customer_bot_disabled_message=customer_bot_disabled_message,
                 flash=request.query_params.get("ok"),
@@ -2519,8 +2523,13 @@ def create_app() -> FastAPI:
                 str(form.get("orders_manual_approval") or "").strip()
                 in {"1", "on", "true", "yes"},
             )
-            repo.set_vendor_settle_mode(
-                session, str(form.get("vendor_settle_mode") or "wallet")
+            repo.set_direct_vendor_card_pay_global(
+                session,
+                str(form.get("direct_vendor_card_pay") or "").strip()
+                in {"1", "on", "true", "yes"},
+            )
+            repo.set_direct_vendor_card_usernames(
+                session, str(form.get("direct_vendor_card_usernames") or "")
             )
             try:
                 repo.set_admin_vendor_alert_max_repeats(

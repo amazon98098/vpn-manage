@@ -1787,8 +1787,10 @@ DEFAULT_ADMIN_VENDOR_ALERT_WINDOW_HOURS = 72
 DEFAULT_ADMIN_VENDOR_DELETED_SUPPRESS_HOURS = 168  # 7d
 # When True: paid create/renew wait for admin approve (no auto fulfill).
 DEFAULT_ORDERS_MANUAL_APPROVAL = False
-# vendor renew/create settle: wallet = NetPlus balance only; card = allow card-to-card
-DEFAULT_VENDOR_SETTLE_MODE = "wallet"
+# Legacy: vendor renew/create settle (kept for old state; UI removed).
+DEFAULT_VENDOR_SETTLE_MODE = "card"
+# Customer pays NetPlus card directly (wallet top-up walk) for create/renew.
+DEFAULT_DIRECT_VENDOR_CARD_PAY = False
 
 DEFAULT_BOT_MESSAGES: dict[str, str] = {
     "welcome": (
@@ -2559,6 +2561,118 @@ def set_vendor_settle_mode(session: Session, mode: str) -> str:
         val = DEFAULT_VENDOR_SETTLE_MODE
     set_state(session, "vendor_settle_mode", val)
     return val
+
+
+def is_direct_vendor_card_pay_global(session: Session) -> bool:
+    raw = (get_state(session, "direct_vendor_card_pay") or "").strip().lower()
+    if not raw:
+        return DEFAULT_DIRECT_VENDOR_CARD_PAY
+    return raw in {"1", "true", "yes", "on"}
+
+
+def set_direct_vendor_card_pay_global(session: Session, enabled: bool) -> bool:
+    val = bool(enabled)
+    set_state(session, "direct_vendor_card_pay", "1" if val else "0")
+    return val
+
+
+def get_direct_vendor_card_usernames(session: Session) -> list[str]:
+    raw = (get_state(session, "direct_vendor_card_usernames") or "").strip()
+    if not raw:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for part in raw.replace(";", ",").replace("\n", ",").split(","):
+        u = part.strip().lstrip("@")
+        if not u:
+            continue
+        key = u.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(u)
+    return out
+
+
+def set_direct_vendor_card_usernames(session: Session, raw: str | list[str]) -> list[str]:
+    if isinstance(raw, list):
+        text = ",".join(str(x) for x in raw)
+    else:
+        text = str(raw or "")
+    # Normalize via getter path
+    set_state(session, "direct_vendor_card_usernames", text)
+    return get_direct_vendor_card_usernames(session)
+
+
+def is_direct_vendor_card_for_username(session: Session, username: str | None) -> bool:
+    """Global on → all create/renew card pays; else only listed usernames."""
+    uname = (username or "").strip().lstrip("@")
+    if is_direct_vendor_card_pay_global(session):
+        return True
+    if not uname:
+        return False
+    want = uname.lower()
+    return any(u.lower() == want for u in get_direct_vendor_card_usernames(session))
+
+
+def order_is_vendor_direct(order) -> bool:
+    if not order:
+        return False
+    if (order.pay_source or "").strip() == "vendor_direct":
+        return True
+    note = order.note or ""
+    return "|vendor_direct" in note or note.startswith("vendor_direct")
+
+
+def match_pending_vendor_direct_by_amount(
+    session: Session, amount_rial: str | int | None
+):
+    """Find open create/renew order waiting on direct vendor card pay."""
+    if amount_rial is None:
+        return None
+    amount = str(amount_rial).replace(",", "").replace(" ", "").strip()
+    if not amount:
+        return None
+    rows = session.scalars(
+        select(CustomerOrder)
+        .where(
+            CustomerOrder.kind.in_(("create", "renew")),
+            CustomerOrder.status.in_(
+                ("awaiting_payment", "receipt_window", "awaiting_review")
+            ),
+            CustomerOrder.amount_rial == amount,
+        )
+        .order_by(CustomerOrder.id.desc())
+    ).all()
+    for order in rows:
+        if order_is_vendor_direct(order):
+            return order
+    # Also match toman*10 against payable when amount_rial was set from NetPlus
+    try:
+        rial = int(amount)
+    except ValueError:
+        return None
+    if rial % 10 != 0:
+        return None
+    toman = rial // 10
+    rows = session.scalars(
+        select(CustomerOrder)
+        .where(
+            CustomerOrder.kind.in_(("create", "renew")),
+            CustomerOrder.status.in_(
+                ("awaiting_payment", "receipt_window", "awaiting_review")
+            ),
+        )
+        .order_by(CustomerOrder.id.desc())
+        .limit(40)
+    ).all()
+    for order in rows:
+        if not order_is_vendor_direct(order):
+            continue
+        payable = order_payable_toman(order)
+        if payable == toman:
+            return order
+    return None
 
 
 def _incoming_username_match(parsed_json: str | None, username: str) -> bool:

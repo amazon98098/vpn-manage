@@ -2065,20 +2065,24 @@ async def cb_settings_approval(callback: CallbackQuery, settings: Settings) -> N
     await safe_answer(callback)
     with get_session() as session:
         manual = repo.is_orders_manual_approval(session)
-        settle = repo.get_vendor_settle_mode(session)
+        direct = repo.is_direct_vendor_card_pay_global(session)
+        users = repo.get_direct_vendor_card_usernames(session)
     manual_fa = "✅ روشن (تایید دستی ادمین)" if manual else "⚡ خاموش (فعال‌سازی خودکار)"
-    settle_fa = (
-        "💰 فقط موجودی فروشنده"
-        if settle == "wallet"
-        else "💳 موجودی + کارت‌به‌کارت در صورت کمبود"
+    direct_fa = (
+        "✅ روشن برای همه نام‌کاربری‌ها"
+        if direct
+        else "⚪️ خاموش (سراسری)"
     )
+    users_fa = "، ".join(f"<code>{u}</code>" for u in users) if users else "—"
     await _ui_show(
         callback.message,
-        "✅ <b>تایید سفارش و پرداخت فروشنده</b>\n\n"
+        "✅ <b>تایید سفارش و کارت مستقیم فروشنده</b>\n\n"
         f"تایید دستی خرید/تمدید: {manual_fa}\n"
-        f"تسویه در فروشنده: {settle_fa}\n\n"
-        "با تایید دستی، بعد از پرداخت مشتری سفارش برای ادمین می‌آید "
-        "و تا تایید صریح فعال نمی‌شود.",
+        f"پرداخت مستقیم به کارت فروشنده: {direct_fa}\n"
+        f"نام‌کاربری‌های خاص: {users_fa}\n\n"
+        "با پرداخت مستقیم، مشتری کارت/مبلغ NetPlus را می‌بیند "
+        "(افزایش موجودی فروشنده)، حتماً رسید می‌فرستد، "
+        "و اگر تا ۳ دقیقه تایید خودکار نشود رسید به فروشنده ارسال می‌شود.",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -2091,10 +2095,16 @@ async def cb_settings_approval(callback: CallbackQuery, settings: Settings) -> N
                 ],
                 [
                     InlineKeyboardButton(
-                        text="💰 فقط موجودی فروشنده"
-                        if settle != "wallet"
-                        else "💳 اجازه کارت‌به‌کارت",
-                        callback_data="approval:settle:toggle",
+                        text="🔴 خاموش کردن پرداخت مستقیم سراسری"
+                        if direct
+                        else "🟢 روشن کردن پرداخت مستقیم سراسری",
+                        callback_data="approval:direct:toggle",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="✏️ ویرایش لیست نام‌کاربری",
+                        callback_data="approval:direct:users",
                     )
                 ],
                 [InlineKeyboardButton(text="⬅️ تنظیمات", callback_data="menu:settings")],
@@ -2116,18 +2126,36 @@ async def cb_approval_manual_toggle(
     await cb_settings_approval(callback, settings)
 
 
-@router.callback_query(F.data == "approval:settle:toggle")
-async def cb_approval_settle_toggle(
+@router.callback_query(F.data == "approval:direct:toggle")
+async def cb_approval_direct_toggle(
     callback: CallbackQuery, settings: Settings
 ) -> None:
     if not is_admin(callback.from_user.id, settings):
         return
     with get_session() as session:
-        cur = repo.get_vendor_settle_mode(session)
-        repo.set_vendor_settle_mode(
-            session, "card" if cur == "wallet" else "wallet"
-        )
+        now = not repo.is_direct_vendor_card_pay_global(session)
+        repo.set_direct_vendor_card_pay_global(session, now)
     await cb_settings_approval(callback, settings)
+
+
+@router.callback_query(F.data == "approval:direct:users")
+async def cb_approval_direct_users(
+    callback: CallbackQuery, settings: Settings
+) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    uid = callback.from_user.id if callback.from_user else 0
+    with get_session() as session:
+        users = repo.get_direct_vendor_card_usernames(session)
+        repo.set_state(session, f"admin_flow:{uid}", "direct_vendor_users_edit")
+    cur = ", ".join(users) if users else "—"
+    await callback.message.answer(
+        "نام‌کاربری سرویس‌هایی که باید پرداخت مستقیم فروشنده داشته باشند "
+        "را در یک خط بفرستید (با ویرگول).\n"
+        "برای پاک کردن لیست: <code>-</code>\n\n"
+        f"فعلی: <code>{cur}</code>"
+    )
+    await callback.answer()
 
 
 @router.callback_query(F.data == "settings:maintenance")
@@ -3379,6 +3407,21 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
             reply_markup=admin_reply_menu(),
         )
         await message.answer(saved)
+        return
+
+    if flow == "direct_vendor_users_edit":
+        raw = (query or "").strip()
+        with get_session() as session:
+            if raw in {"-", "—", "clear", "پاک", "خالی"}:
+                users = repo.set_direct_vendor_card_usernames(session, "")
+            else:
+                users = repo.set_direct_vendor_card_usernames(session, raw)
+            repo.set_state(session, f"admin_flow:{uid}", "")
+        shown = ", ".join(users) if users else "—"
+        await message.answer(
+            f"✅ لیست پرداخت مستقیم فروشنده به‌روز شد:\n<code>{shown}</code>",
+            reply_markup=admin_reply_menu(),
+        )
         return
 
     if flow == "userinfo_ttl_edit":
