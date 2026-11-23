@@ -29,3 +29,20 @@ async def ensure_authorized(client: TelegramClient) -> None:
         )
     me = await client.get_me()
     log.info("User client ready as %s (%s)", me.username or me.first_name, me.id)
+
+
+async def ensure_connected(client: TelegramClient) -> None:
+    """Reconnect Telethon if the MTProto session dropped (common after net blips)."""
+    try:
+        connected = client.is_connected()
+    except Exception:
+        connected = False
+    if connected:
+        return
+    log.warning("User Telegram client disconnected — reconnecting")
+    await client.connect()
+    if not client.is_connected():
+        raise ConnectionError("telethon_reconnect_failed")
+    if not await client.is_user_authorized():
+        raise ConnectionError("telethon_session_unauthorized")
+    log.info("User Telegram client reconnected")

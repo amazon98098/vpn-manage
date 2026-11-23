@@ -212,6 +212,9 @@ class NetPlusRenewDriver:
         self._entity = None
 
     async def ensure_entity(self):
+        from app.telegram.user_client import ensure_connected
+
+        await ensure_connected(self.client)
         if self._entity is None:
             self._entity = await self.client.get_entity(self.bot_username)
         return self._entity

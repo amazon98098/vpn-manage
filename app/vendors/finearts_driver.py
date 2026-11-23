@@ -231,6 +231,9 @@ class FineArtsRenewDriver:
         # (RenewQueue serializes jobs; this is belt-and-suspenders for URL/status.)
 
     async def ensure_entity(self):
+        from app.telegram.user_client import ensure_connected
+
+        await ensure_connected(self.client)
         if self._entity is None:
             self._entity = await self.client.get_entity(self.bot_username)
         self._ui._entity = self._entity
