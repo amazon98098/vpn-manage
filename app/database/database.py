@@ -57,6 +57,42 @@ def _migrate_sqlite(engine) -> None:
                 alters.append(
                     "ALTER TABLE customer_profiles ADD COLUMN updated_at DATETIME"
                 )
+            if "rate_tier" not in pcols:
+                alters.append(
+                    "ALTER TABLE customer_profiles ADD COLUMN rate_tier "
+                    "VARCHAR(16) DEFAULT 'default'"
+                )
+            if "referred_by_telegram_id" not in pcols:
+                alters.append(
+                    "ALTER TABLE customer_profiles ADD COLUMN "
+                    "referred_by_telegram_id BIGINT"
+                )
+
+        if "price_plans" in tables:
+            ppcols = _table_cols(conn, "price_plans")
+            if "price_friends_toman" not in ppcols:
+                alters.append(
+                    "ALTER TABLE price_plans ADD COLUMN price_friends_toman INTEGER"
+                )
+            if "price_colleagues_toman" not in ppcols:
+                alters.append(
+                    "ALTER TABLE price_plans ADD COLUMN price_colleagues_toman INTEGER"
+                )
+
+        if "education_lessons" in tables:
+            elcols = _table_cols(conn, "education_lessons")
+            if "media_type" not in elcols:
+                alters.append(
+                    "ALTER TABLE education_lessons ADD COLUMN media_type VARCHAR(16)"
+                )
+            if "media_file_id" not in elcols:
+                alters.append(
+                    "ALTER TABLE education_lessons ADD COLUMN media_file_id VARCHAR(256)"
+                )
+            if "media_caption" not in elcols:
+                alters.append(
+                    "ALTER TABLE education_lessons ADD COLUMN media_caption TEXT"
+                )
 
         if "customer_orders" in tables:
             ocols = _table_cols(conn, "customer_orders")

@@ -54,7 +54,7 @@ def save_meta(session, order_id: int, data: dict) -> None:
 
 
 async def prepare_vendor_direct_payment(order_id: int) -> dict:
-    """Walk NetPlus wallet top-up and stamp order with vendor card/amount."""
+    """Walk vendor wallet top-up (NetPlus / FineArts) and stamp card/amount on order."""
     with get_session() as session:
         order = repo.get_customer_order(session, order_id)
         if not order:
@@ -63,17 +63,21 @@ async def prepare_vendor_direct_payment(order_id: int) -> dict:
             return {"ok": False, "error": "bad_kind"}
         amount_toman = repo.order_payable_toman(order)
         uname = order.service_username
+        plan = repo.get_price_plan(session, order.plan_id) if order.plan_id else None
+        vendor_key = repo.vendor_key_for_price_plan(plan)
         if amount_toman <= 0:
             return {"ok": False, "error": "nothing_payable"}
+    vendor_key_saved = vendor_key
 
     from app.telegram import customer_bridge
+    from app.vendors.registry import get_vendor_driver
 
     rq = customer_bridge.renew_queue
     if rq is None:
         return {"ok": False, "error": "queue_unavailable"}
-    driver = rq._driver_for_vendor_id(None)
+    driver = get_vendor_driver(vendor_key_saved) or rq._driver_for_vendor_id(None)
     if driver is None or not hasattr(driver, "drive_wallet_topup"):
-        return {"ok": False, "error": "driver_unavailable"}
+        return {"ok": False, "error": f"driver_unavailable:{vendor_key_saved}"}
 
     result = await driver.drive_wallet_topup(amount_toman)
     if not result.ok or not result.payment:
@@ -115,6 +119,7 @@ async def prepare_vendor_direct_payment(order_id: int) -> dict:
                 "payment_message_id": pay.message_id,
                 "username": uname,
                 "amount_toman": amount_toman,
+                "vendor_key": vendor_key_saved,
             },
         )
     return {
@@ -232,11 +237,13 @@ async def forward_receipt_to_vendor(order_id: int) -> dict:
         pay_mid = meta.get("payment_message_id")
 
     from app.telegram import customer_bridge
+    from app.vendors.registry import get_vendor_driver
 
     rq = customer_bridge.renew_queue
     if rq is None:
         return {"ok": False, "error": "queue_unavailable"}
-    driver = rq._driver_for_vendor_id(None)
+    vendor_key = str(meta.get("vendor_key") or "netplus")
+    driver = get_vendor_driver(vendor_key) or rq._driver_for_vendor_id(None)
     if driver is None:
         return {"ok": False, "error": "driver_unavailable"}
 

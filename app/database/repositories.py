@@ -2624,6 +2624,364 @@ def order_is_vendor_direct(order) -> bool:
     return "|vendor_direct" in note or note.startswith("vendor_direct")
 
 
+def toggle_direct_vendor_card_username(session: Session, username: str) -> bool:
+    """Add/remove one service username from direct-vendor list. Returns True if now listed."""
+    uname = (username or "").strip().lstrip("@")
+    if not uname:
+        return False
+    cur = get_direct_vendor_card_usernames(session)
+    lower = {u.lower(): u for u in cur}
+    key = uname.lower()
+    if key in lower:
+        cur = [u for u in cur if u.lower() != key]
+        set_direct_vendor_card_usernames(session, cur)
+        return False
+    cur.append(uname)
+    set_direct_vendor_card_usernames(session, cur)
+    return True
+
+
+RATE_TIERS = ("default", "friends", "colleagues")
+RATE_TIER_LABELS = {
+    "default": "عادی",
+    "friends": "دوستان",
+    "colleagues": "همکاران",
+}
+
+
+def normalize_rate_tier(tier: str | None) -> str:
+    t = (tier or "default").strip().lower()
+    if t in {"friend", "friends"}:
+        return "friends"
+    if t in {"colleague", "colleagues", "coworker", "coworkers"}:
+        return "colleagues"
+    if t in RATE_TIERS:
+        return t
+    return "default"
+
+
+def get_customer_rate_tier(session: Session, telegram_id: int) -> str:
+    row = get_customer_profile(session, telegram_id)
+    if not row:
+        return "default"
+    return normalize_rate_tier(getattr(row, "rate_tier", None))
+
+
+def set_customer_rate_tier(
+    session: Session, telegram_id: int, tier: str
+) -> CustomerProfile:
+    row = upsert_customer_profile(session, telegram_id)
+    row.rate_tier = normalize_rate_tier(tier)
+    row.updated_at = datetime.utcnow()
+    session.flush()
+    return row
+
+
+def list_customers_by_rate_tier(
+    session: Session, tier: str
+) -> list[CustomerProfile]:
+    want = normalize_rate_tier(tier)
+    if want == "default":
+        return list(
+            session.scalars(
+                select(CustomerProfile)
+                .where(
+                    or_(
+                        CustomerProfile.rate_tier.is_(None),
+                        CustomerProfile.rate_tier == "",
+                        CustomerProfile.rate_tier == "default",
+                    )
+                )
+                .order_by(CustomerProfile.id.desc())
+            )
+        )
+    return list(
+        session.scalars(
+            select(CustomerProfile)
+            .where(CustomerProfile.rate_tier == want)
+            .order_by(CustomerProfile.id.desc())
+        )
+    )
+
+
+def sell_price_toman(plan: PricePlan | None, tier: str | None = "default") -> int:
+    if plan is None:
+        return 0
+    t = normalize_rate_tier(tier)
+    if t == "friends":
+        special = getattr(plan, "price_friends_toman", None)
+        if special is not None and int(special) > 0:
+            return int(special)
+    elif t == "colleagues":
+        special = getattr(plan, "price_colleagues_toman", None)
+        if special is not None and int(special) > 0:
+            return int(special)
+    return int(plan.price_toman or 0)
+
+
+def sell_price_for_customer(
+    session: Session, plan: PricePlan | None, telegram_id: int
+) -> int:
+    return sell_price_toman(plan, get_customer_rate_tier(session, telegram_id))
+
+
+def set_plan_tier_price(
+    session: Session,
+    plan_id: int,
+    *,
+    tier: str,
+    price_toman: int | None,
+) -> PricePlan | None:
+    plan = session.get(PricePlan, plan_id)
+    if not plan:
+        return None
+    t = normalize_rate_tier(tier)
+    val = None if price_toman is None else max(0, int(price_toman))
+    if t == "friends":
+        plan.price_friends_toman = val
+    elif t == "colleagues":
+        plan.price_colleagues_toman = val
+    else:
+        plan.price_toman = int(val or 0)
+    plan.updated_at = datetime.utcnow()
+    session.flush()
+    return plan
+
+
+def get_referral_percent(session: Session) -> int:
+    raw = (get_state(session, "referral_commission_percent") or "").strip()
+    try:
+        pct = int(raw)
+    except ValueError:
+        pct = 0
+    return max(0, min(100, pct))
+
+
+def set_referral_percent(session: Session, percent: int) -> int:
+    pct = max(0, min(100, int(percent)))
+    set_state(session, "referral_commission_percent", str(pct))
+    return pct
+
+
+def set_referred_by_if_empty(
+    session: Session, telegram_id: int, referrer_telegram_id: int
+) -> bool:
+    """Bind referrer once (cannot overwrite). Returns True if newly set."""
+    if int(telegram_id) == int(referrer_telegram_id):
+        return False
+    row = upsert_customer_profile(session, telegram_id)
+    if getattr(row, "referred_by_telegram_id", None):
+        return False
+    # Ensure referrer profile exists
+    upsert_customer_profile(session, referrer_telegram_id)
+    row.referred_by_telegram_id = int(referrer_telegram_id)
+    row.updated_at = datetime.utcnow()
+    session.flush()
+    return True
+
+
+def apply_referral_credit_for_order(session: Session, order: CustomerOrder) -> dict:
+    """Credit referrer wallet with configured % of paid create/renew. Idempotent per order."""
+    if not order or order.kind not in ("create", "renew"):
+        return {"ok": False, "reason": "kind"}
+    note = order.note or ""
+    if "|referral_paid" in note:
+        return {"ok": False, "reason": "already"}
+    pct = get_referral_percent(session)
+    if pct <= 0:
+        return {"ok": False, "reason": "pct_zero"}
+    buyer = get_customer_profile(session, order.telegram_id)
+    ref_id = getattr(buyer, "referred_by_telegram_id", None) if buyer else None
+    if not ref_id:
+        return {"ok": False, "reason": "no_referrer"}
+    if int(ref_id) == int(order.telegram_id):
+        return {"ok": False, "reason": "self"}
+    base = max(0, int(order.price_toman or 0) - int(order.wallet_applied_toman or 0))
+    if base <= 0:
+        base = max(0, int(order.price_toman or 0))
+    amount = int(base * pct / 100)
+    if amount <= 0:
+        return {"ok": False, "reason": "amount_zero"}
+    new_bal = credit_wallet(
+        session,
+        int(ref_id),
+        amount,
+        kind="referral",
+        order_id=order.id,
+        note=f"referral:{order.telegram_id}:{pct}%",
+    )
+    order.note = (note + "|referral_paid").strip("|")
+    touch_customer_order(order)
+    return {
+        "ok": True,
+        "referrer_id": int(ref_id),
+        "amount": amount,
+        "balance": new_bal,
+        "percent": pct,
+        "buyer_id": int(order.telegram_id),
+    }
+
+
+def _invite_store(session: Session) -> dict[str, Any]:
+    raw = (get_state(session, "rate_tier_invites") or "").strip()
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _save_invite_store(session: Session, data: dict[str, Any]) -> None:
+    set_state(session, "rate_tier_invites", json.dumps(data, ensure_ascii=False))
+
+
+def create_rate_tier_invite(
+    session: Session, tier: str, *, created_by: int | None = None
+) -> str:
+    import secrets
+
+    t = normalize_rate_tier(tier)
+    if t == "default":
+        t = "friends"
+    token = secrets.token_urlsafe(9).replace("-", "").replace("_", "")[:12]
+    store = _invite_store(session)
+    store[token] = {
+        "tier": t,
+        "created_at": datetime.utcnow().isoformat(),
+        "created_by": created_by,
+        "used": False,
+    }
+    _save_invite_store(session, store)
+    return token
+
+
+def consume_rate_tier_invite(
+    session: Session, token: str, telegram_id: int
+) -> str | None:
+    """One-time invite → set rate_tier. Returns applied tier or None."""
+    tok = (token or "").strip()
+    if not tok:
+        return None
+    store = _invite_store(session)
+    row = store.get(tok)
+    if not isinstance(row, dict) or row.get("used"):
+        return None
+    tier = normalize_rate_tier(str(row.get("tier") or "friends"))
+    set_customer_rate_tier(session, telegram_id, tier)
+    row["used"] = True
+    row["used_by"] = int(telegram_id)
+    row["used_at"] = datetime.utcnow().isoformat()
+    store[tok] = row
+    _save_invite_store(session, store)
+    return tier
+
+
+def search_customer_profiles_page(
+    session: Session,
+    *,
+    query: str | None = None,
+    page: int = 0,
+    page_size: int = 10,
+) -> tuple[list[CustomerProfile], int]:
+    filters = []
+    raw = (query or "").strip().lstrip("@")
+    if raw:
+        like = f"%{raw}%"
+        clauses = [
+            CustomerProfile.username.ilike(like),
+            CustomerProfile.full_name.ilike(like),
+        ]
+        if raw.isdigit():
+            clauses.append(CustomerProfile.telegram_id == int(raw))
+        filters.append(or_(*clauses))
+    count_q = select(func.count()).select_from(CustomerProfile)
+    list_q = select(CustomerProfile)
+    for f in filters:
+        count_q = count_q.where(f)
+        list_q = list_q.where(f)
+    total = session.scalar(count_q) or 0
+    rows = list(
+        session.scalars(
+            list_q.order_by(CustomerProfile.id.desc())
+            .offset(max(0, page) * page_size)
+            .limit(page_size)
+        )
+    )
+    return rows, int(total)
+
+
+def list_usable_usernames_with_owners_page(
+    session: Session,
+    *,
+    query: str | None = None,
+    page: int = 0,
+    page_size: int = 10,
+) -> tuple[list[dict[str, Any]], int]:
+    """Usable inventory usernames + owner display name for admin pickers."""
+    q = (
+        select(Subscription, CustomerServiceLink, CustomerProfile)
+        .outerjoin(
+            CustomerServiceLink,
+            or_(
+                CustomerServiceLink.subscription_id == Subscription.id,
+                CustomerServiceLink.service_username == Subscription.username,
+            ),
+        )
+        .outerjoin(
+            CustomerProfile,
+            CustomerProfile.telegram_id == CustomerServiceLink.telegram_id,
+        )
+        .where(Subscription.status.in_(tuple(USABLE_SUBSCRIPTION_STATUSES)))
+    )
+    raw = (query or "").strip().lstrip("@")
+    if raw:
+        like = f"%{raw}%"
+        clauses = [
+            Subscription.username.ilike(like),
+            CustomerProfile.username.ilike(like),
+            CustomerProfile.full_name.ilike(like),
+        ]
+        if raw.isdigit():
+            clauses.append(CustomerServiceLink.telegram_id == int(raw))
+        q = q.where(or_(*clauses))
+    # Deduplicate by username (keep newest sub id)
+    rows = list(
+        session.execute(q.order_by(Subscription.id.desc()).limit(2000)).all()
+    )
+    seen: set[str] = set()
+    items: list[dict[str, Any]] = []
+    for sub, link, profile in rows:
+        uname = (sub.username or "").strip()
+        if not uname or uname.lower() in seen:
+            continue
+        seen.add(uname.lower())
+        owner_name = None
+        owner_tg = None
+        if profile is not None:
+            owner_tg = profile.telegram_id
+            owner_name = (
+                (f"@{profile.username}" if profile.username else None)
+                or profile.full_name
+                or str(profile.telegram_id)
+            )
+        elif link is not None:
+            owner_tg = link.telegram_id
+            owner_name = str(link.telegram_id)
+        items.append(
+            {
+                "username": uname,
+                "subscription_id": sub.id,
+                "owner_telegram_id": owner_tg,
+                "owner_label": owner_name or "—",
+            }
+        )
+    total = len(items)
+    start = max(0, page) * page_size
+    return items[start : start + page_size], total
+
+
 def match_pending_vendor_direct_by_amount(
     session: Session, amount_rial: str | int | None
 ):
@@ -3398,6 +3756,8 @@ def list_bot_messages(session: Session) -> list[BotMessage]:
 
 EDU_ANDROID_V2RAYNG_TITLE = "اتصال در برنامه V2rayNG"
 EDU_ANDROID_V2RAYNG_BODY = (
+    "برای دانلود آخرین نسخه V2rayNG اندروید وارد لینک زیر شوید👇👇\n"
+    "https://t.me/fxonevpn/4\n\n"
     "برای راه‌اندازی اشتراک روی <b>اندروید</b> با برنامه "
     "<b>V2rayNG</b>، مراحل زیر را به ترتیب انجام دهید:\n\n"
     "1️⃣ لینک اشتراک را کپی کنید.\n"
@@ -3662,6 +4022,10 @@ def update_education_lesson(
     body: str | None = None,
     enabled: bool | None = None,
     sort_order: int | None = None,
+    media_type: str | None = None,
+    media_file_id: str | None = None,
+    media_caption: str | None = None,
+    clear_media: bool = False,
 ) -> EducationLesson | None:
     row = session.get(EducationLesson, lesson_id)
     if not row:
@@ -3674,6 +4038,17 @@ def update_education_lesson(
         row.enabled = enabled
     if sort_order is not None:
         row.sort_order = sort_order
+    if clear_media:
+        row.media_type = None
+        row.media_file_id = None
+        row.media_caption = None
+    else:
+        if media_type is not None:
+            row.media_type = (media_type or "").strip()[:16] or None
+        if media_file_id is not None:
+            row.media_file_id = (media_file_id or "").strip()[:256] or None
+        if media_caption is not None:
+            row.media_caption = media_caption
     row.updated_at = datetime.utcnow()
     session.flush()
     return row

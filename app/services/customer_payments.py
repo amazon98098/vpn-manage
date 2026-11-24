@@ -491,6 +491,7 @@ async def _apply_paid_order(
         amount_show = order.amount_rial or amount
         wallet_balance = None
         fulfill = False
+        referral_info = None
 
         if kind == "wallet":
             wallet_balance, credited = repo.credit_wallet_once_for_order(
@@ -517,12 +518,35 @@ async def _apply_paid_order(
                 order.note = (order.note or "") + "|ready_fulfill"
                 fulfill = True
             repo.touch_customer_order(order)
+            try:
+                referral_info = repo.apply_referral_credit_for_order(session, order)
+            except Exception:
+                log.exception("referral credit failed order=%s", oid)
+                referral_info = None
 
     manual_needed = False
     with get_session() as session:
         manual_needed = bool(
             kind != "wallet" and repo.is_orders_manual_approval(session) and not fulfill
         )
+
+    if referral_info and referral_info.get("ok"):
+        try:
+            bot = customer_bridge.customer_bot
+            ref_tg = int(referral_info["referrer_id"])
+            amt = int(referral_info["amount"])
+            bal = int(referral_info.get("balance") or 0)
+            pct = int(referral_info.get("percent") or 0)
+            if bot:
+                await bot.send_message(
+                    ref_tg,
+                    f"🎁 کمیسیون مجموعه‌گیری\n"
+                    f"{pct}٪ از خرید زیرمجموعه‌تان به کیف پول واریز شد.\n"
+                    f"مبلغ: <b>{amt:,}</b> تومان\n"
+                    f"موجودی جدید: <b>{bal:,}</b> تومان",
+                )
+        except Exception:
+            log.exception("referral notify failed order=%s", oid)
 
     if kind == "wallet":
         try:

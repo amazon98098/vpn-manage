@@ -205,11 +205,16 @@ async def run() -> None:
         customer_bridge.customer_bot = customer_bot
         customer_dp = Dispatcher()
         customer_dp["settings"] = settings
+        from app.telegram.channel_gate import ChannelMembershipMiddleware
+
+        customer_dp.message.middleware(ChannelMembershipMiddleware())
+        customer_dp.callback_query.middleware(ChannelMembershipMiddleware())
         customer_dp.include_router(build_customer_router())
         try:
             await customer_bot.set_my_commands(
                 [
                     BotCommand(command="start", description="🏠 شروع مجدد"),
+                    BotCommand(command="menu", description="📋 نمایش منوی پایین"),
                     BotCommand(command="buy", description="🛒 خرید اشتراک"),
                     BotCommand(
                         command="services",

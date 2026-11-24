@@ -45,12 +45,18 @@ CUSTOMER_ACTIONS: dict[str, dict[str, Any]] = {
         "label": "💬 پشتیبانی",
         "aliases": ["💬 پشتیبانی", "🆘 پشتیبانی"],
     },
+    "hide_menu": {
+        "fa_name": "مخفی کردن منو",
+        "label": "⬇️ مخفی کردن منو",
+        "aliases": ["⬇️ مخفی کردن منو", "مخفی کردن منو"],
+    },
 }
 
 DEFAULT_CUSTOMER_LAYOUT: list[list[str]] = [
     ["buy", "mine"],
     ["wallet", "prices"],
     ["guide", "support"],
+    ["hide_menu"],
 ]
 
 # ─── Customer support submenu (reply keyboard) ────────────────────────────────
@@ -171,6 +177,8 @@ ADMIN_INLINE_MENUS: dict[str, dict[str, Any]] = {
             {"id": "userinfo_ttl", "label": "⏱ TTL بروزرسانی لینک", "callback": "settings:userinfo_ttl"},
             {"id": "refresh_strategy", "label": "🔄 استراتژی بروزرسانی سرویس", "callback": "settings:refresh_strategy"},
             {"id": "approval", "label": "✅ تایید سفارش و کارت فروشنده", "callback": "settings:approval"},
+            {"id": "rates", "label": "👥 نرخ دوستان/همکار و مجموعه‌گیری", "callback": "settings:rates"},
+            {"id": "channel", "label": "📢 کانال اجباری مشتری", "callback": "settings:channel"},
             {"id": "lifecycle", "label": "📣 هشدار اتمام سرویس", "callback": "settings:lifecycle"},
             {"id": "maintenance", "label": "🛠 حالت تعمیر ربات مشتری", "callback": "settings:maintenance"},
             {"id": "vendors", "label": "🏪 فروشنده‌ها", "callback": "menu:vendor"},

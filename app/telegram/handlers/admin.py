@@ -149,14 +149,16 @@ def sub_actions(
         ],
     ]
     if sub_id is not None:
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text="👤 تعیین / جابه‌جایی مالک",
-                    callback_data=f"own:as:{sub_id}",
-                )
-            ]
-        )
+        # Ownership assign only from inventory/search — not from almost-out/warnings.
+        if hide_alert_src not in {"local_alerts", "warnings"}:
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text="👤 تعیین / جابه‌جایی مالک",
+                        callback_data=f"own:as:{sub_id}",
+                    )
+                ]
+            )
         if hide_alert_src == "local_alerts":
             rows.append(
                 [
@@ -2103,7 +2105,7 @@ async def cb_settings_approval(callback: CallbackQuery, settings: Settings) -> N
                 ],
                 [
                     InlineKeyboardButton(
-                        text="✏️ ویرایش لیست نام‌کاربری",
+                        text="📋 انتخاب نام‌کاربری (جستجو)",
                         callback_data="approval:direct:users",
                     )
                 ],
@@ -2112,6 +2114,80 @@ async def cb_settings_approval(callback: CallbackQuery, settings: Settings) -> N
         ),
         edit=True,
     )
+
+
+@router.callback_query(F.data == "settings:channel")
+async def cb_settings_channel(callback: CallbackQuery, settings: Settings) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    await safe_answer(callback)
+    from app.telegram.channel_gate import (
+        get_required_channel,
+        is_channel_gate_enabled,
+        set_channel_gate_enabled,
+    )
+
+    channel = get_required_channel()
+    enabled = is_channel_gate_enabled()
+    await _ui_show(
+        callback.message,
+        "📢 <b>عضویت اجباری در کانال</b>\n\n"
+        f"کانال: @{channel}\n"
+        f"وضعیت دروازه: {'✅ روشن' if enabled else '⚪️ خاموش'}\n\n"
+        "ربات مشتری باید در کانال <b>ادمین</b> باشد تا بتواند عضویت را چک کند.\n"
+        "برای محدود کردن محتوای کانال به مشترکان، از تنظیمات خود کانال "
+        "(Join Requests / محدود کردن پیام‌ها) استفاده کنید — "
+        "ربات فقط استفاده از منوی مشتری را قفل می‌کند.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="🔴 خاموش کردن دروازه"
+                        if enabled
+                        else "🟢 روشن کردن دروازه",
+                        callback_data="channel:gate:toggle",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="✏️ تغییر نام کانال",
+                        callback_data="channel:edit",
+                    )
+                ],
+                [InlineKeyboardButton(text="⬅️ تنظیمات", callback_data="menu:settings")],
+            ]
+        ),
+        edit=True,
+    )
+
+
+@router.callback_query(F.data == "channel:gate:toggle")
+async def cb_channel_gate_toggle(
+    callback: CallbackQuery, settings: Settings
+) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    from app.telegram.channel_gate import (
+        is_channel_gate_enabled,
+        set_channel_gate_enabled,
+    )
+
+    now = not is_channel_gate_enabled()
+    set_channel_gate_enabled(now)
+    await cb_settings_channel(callback, settings)
+
+
+@router.callback_query(F.data == "channel:edit")
+async def cb_channel_edit(callback: CallbackQuery, settings: Settings) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    uid = callback.from_user.id if callback.from_user else 0
+    with get_session() as session:
+        repo.set_state(session, f"admin_flow:{uid}", "channel_edit")
+    await callback.message.answer(
+        "یوزرنیم کانال را بدون @ بفرستید (مثال: fxonevpn)."
+    )
+    await callback.answer()
 
 
 @router.callback_query(F.data == "approval:manual:toggle")
@@ -2136,26 +2212,6 @@ async def cb_approval_direct_toggle(
         now = not repo.is_direct_vendor_card_pay_global(session)
         repo.set_direct_vendor_card_pay_global(session, now)
     await cb_settings_approval(callback, settings)
-
-
-@router.callback_query(F.data == "approval:direct:users")
-async def cb_approval_direct_users(
-    callback: CallbackQuery, settings: Settings
-) -> None:
-    if not is_admin(callback.from_user.id, settings):
-        return
-    uid = callback.from_user.id if callback.from_user else 0
-    with get_session() as session:
-        users = repo.get_direct_vendor_card_usernames(session)
-        repo.set_state(session, f"admin_flow:{uid}", "direct_vendor_users_edit")
-    cur = ", ".join(users) if users else "—"
-    await callback.message.answer(
-        "نام‌کاربری سرویس‌هایی که باید پرداخت مستقیم فروشنده داشته باشند "
-        "را در یک خط بفرستید (با ویرگول).\n"
-        "برای پاک کردن لیست: <code>-</code>\n\n"
-        f"فعلی: <code>{cur}</code>"
-    )
-    await callback.answer()
 
 
 @router.callback_query(F.data == "settings:maintenance")
@@ -2356,10 +2412,28 @@ async def cb_edu_admin_lesson(callback: CallbackQuery, settings: Settings) -> No
     if not lesson:
         await callback.answer("یافت نشد", show_alert=True)
         return
+    media_line = "بدون ویدیو/رسانه"
+    if getattr(lesson, "media_file_id", None):
+        media_line = (
+            f"رسانه: {lesson.media_type or '?'} "
+            f"(caption: {(lesson.media_caption or '—')[:40]})"
+        )
     await callback.message.answer(
-        f"📄 <b>{lesson.title}</b>\n\n{lesson.body}",
+        f"📄 <b>{lesson.title}</b>\n\n{lesson.body}\n\n🎞 {media_line}",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="🎬 تنظیم ویدیو / رسانه",
+                        callback_data=f"edu:admin:media:{lesson.id}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🗑 حذف رسانه",
+                        callback_data=f"edu:admin:clearmedia:{lesson.id}",
+                    )
+                ],
                 [
                     InlineKeyboardButton(
                         text="🗑 حذف درس",
@@ -2376,6 +2450,34 @@ async def cb_edu_admin_lesson(callback: CallbackQuery, settings: Settings) -> No
         ),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("edu:admin:media:"))
+async def cb_edu_admin_media(callback: CallbackQuery, settings: Settings) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    lesson_id = int((callback.data or "").rsplit(":", 1)[1])
+    uid = callback.from_user.id if callback.from_user else 0
+    with get_session() as session:
+        repo.set_state(session, f"admin_flow:{uid}", f"edu_set_media:{lesson_id}")
+    await callback.message.answer(
+        "ویدیو (یا عکس/فایل) را همین‌جا بفرستید.\n"
+        "اگر caption بگذارید همان به‌عنوان توضیح رسانه ذخیره می‌شود.\n"
+        "انصراف: <code>-</code>"
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("edu:admin:clearmedia:"))
+async def cb_edu_clear_media(callback: CallbackQuery, settings: Settings) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    lesson_id = int((callback.data or "").rsplit(":", 1)[1])
+    with get_session() as session:
+        repo.update_education_lesson(session, lesson_id, clear_media=True)
+    await callback.answer("رسانه حذف شد", show_alert=True)
+    callback.data = f"edu:admin:lesson:{lesson_id}"
+    await cb_edu_admin_lesson(callback, settings)
 
 
 @router.callback_query(F.data.startswith("edu:admin:dellesson:"))
@@ -2488,19 +2590,35 @@ async def cb_invoice_desc_edit(callback: CallbackQuery, settings: Settings) -> N
 async def cb_price_edit(callback: CallbackQuery, settings: Settings) -> None:
     if not is_admin(callback.from_user.id, settings):
         return
-    plan_id = int((callback.data or "").rsplit(":", 1)[1])
+    # price:edit:ID  or  price:edit:friends:ID / colleagues:ID
+    parts = (callback.data or "").split(":")
+    tier = "default"
+    plan_id = 0
+    if len(parts) >= 4 and parts[2] in ("friends", "colleagues", "default"):
+        tier = parts[2]
+        plan_id = int(parts[3])
+    else:
+        plan_id = int(parts[-1])
     uid = callback.from_user.id
     with get_session() as session:
         plan = repo.get_price_plan(session, plan_id)
         if not plan:
             await callback.answer("یافت نشد", show_alert=True)
             return
-        repo.set_state(session, f"admin_flow:{uid}", f"price_edit:{plan_id}")
+        repo.set_state(session, f"admin_flow:{uid}", f"price_edit:{tier}:{plan_id}")
         title = plan.title
-        current = plan.price_toman
+        if tier == "friends":
+            current = plan.price_friends_toman
+        elif tier == "colleagues":
+            current = plan.price_colleagues_toman
+        else:
+            current = plan.price_toman
+    tier_fa = repo.RATE_TIER_LABELS.get(tier, "عادی")
+    cur_fa = f"{int(current):,}" if current is not None else "— (همان نرخ عادی)"
     await callback.message.answer(
-        f"💰 قیمت جدید برای <b>{title}</b> را به تومان بفرستید.\n"
-        f"قیمت فعلی: <code>{current:,}</code> تومان"
+        f"💰 قیمت «{tier_fa}» برای <b>{title}</b> را به تومان بفرستید.\n"
+        f"فعلی: <code>{cur_fa}</code>\n"
+        "برای پاک کردن نرخ ویژه: <code>-</code>"
     )
     await callback.answer()
 
@@ -2534,15 +2652,35 @@ async def _send_prices(message: Message, *, edit: bool = False, page: int = 0) -
         if p.vendor_cost_toman:
             margin = f" · سود ~{(p.price_toman - p.vendor_cost_toman):,}"
         icon = "💎" if int(p.duration_days or 0) == 0 else "✨"
+        fr = getattr(p, "price_friends_toman", None)
+        col = getattr(p, "price_colleagues_toman", None)
+        extra = ""
+        if fr:
+            extra += f" · دوستان {int(fr):,}"
+        if col:
+            extra += f" · همکار {int(col):,}"
         lines.append(
-            f"{icon} <b>{p.title}</b> — <code>{p.price_toman:,}</code> ت{margin}"
+            f"{icon} <b>{p.title}</b> — <code>{p.price_toman:,}</code> ت"
+            f"{margin}{extra}"
         )
         kb_rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"✏️ {icon} {p.title[:24]}",
+                    text=f"✏️ عادی {icon} {p.title[:18]}",
                     callback_data=f"price:edit:{p.id}",
                 )
+            ]
+        )
+        kb_rows.append(
+            [
+                InlineKeyboardButton(
+                    text="👫 دوستان",
+                    callback_data=f"price:edit:friends:{p.id}",
+                ),
+                InlineKeyboardButton(
+                    text="👔 همکار",
+                    callback_data=f"price:edit:colleagues:{p.id}",
+                ),
             ]
         )
     if archived:
@@ -3213,11 +3351,68 @@ async def customer_order_reject(callback: CallbackQuery, settings: Settings) -> 
     )
 
 
+async def _try_save_education_media(message: Message) -> bool:
+    """If admin is in edu_set_media flow, save video/photo/doc. Returns True if handled."""
+    uid = message.from_user.id if message.from_user else 0
+    with get_session() as session:
+        flow = (repo.get_state(session, f"admin_flow:{uid}") or "").strip()
+    if not flow.startswith("edu_set_media:"):
+        return False
+    lesson_id = int(flow.split(":", 1)[1])
+    media_type = None
+    file_id = None
+    if message.video:
+        media_type = "video"
+        file_id = message.video.file_id
+    elif message.animation:
+        media_type = "animation"
+        file_id = message.animation.file_id
+    elif message.photo:
+        media_type = "photo"
+        file_id = message.photo[-1].file_id
+    elif message.document:
+        media_type = "document"
+        file_id = message.document.file_id
+    elif (message.text or "").strip() in {"-", "—"}:
+        with get_session() as session:
+            repo.set_state(session, f"admin_flow:{uid}", "")
+        await message.answer("لغو شد.")
+        return True
+    else:
+        await message.answer("ویدیو، عکس یا فایل بفرستید (یا - برای انصراف).")
+        return True
+    caption = (message.caption or "").strip() or None
+    with get_session() as session:
+        repo.update_education_lesson(
+            session,
+            lesson_id,
+            media_type=media_type,
+            media_file_id=file_id,
+            media_caption=caption,
+        )
+        repo.set_state(session, f"admin_flow:{uid}", "")
+    await message.answer(
+        f"✅ رسانه درس #{lesson_id} ذخیره شد ({media_type})."
+        + (" با caption." if caption else "")
+    )
+    return True
+
+
+@router.message(F.video | F.animation | F.document)
+async def on_admin_media(message: Message, settings: Settings) -> None:
+    if not is_admin(message.from_user.id if message.from_user else None, settings):
+        return
+    if await _try_save_education_media(message):
+        return
+
+
 @router.message(F.photo)
 async def on_receipt_photo(
     message: Message, settings: Settings, renew_queue: RenewQueue
 ) -> None:
     if not is_admin(message.from_user.id if message.from_user else None, settings):
+        return
+    if await _try_save_education_media(message):
         return
     with get_session() as session:
         jobs = [
@@ -3409,19 +3604,30 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
         await message.answer(saved)
         return
 
-    if flow == "direct_vendor_users_edit":
-        raw = (query or "").strip()
+    from app.telegram.handlers.admin_rates import handle_rates_admin_text
+
+    if await handle_rates_admin_text(message, uid, flow, query):
+        return
+
+    if flow == "channel_edit":
+        from app.telegram.channel_gate import set_required_channel
+
+        ch = set_required_channel(query)
         with get_session() as session:
-            if raw in {"-", "—", "clear", "پاک", "خالی"}:
-                users = repo.set_direct_vendor_card_usernames(session, "")
-            else:
-                users = repo.set_direct_vendor_card_usernames(session, raw)
             repo.set_state(session, f"admin_flow:{uid}", "")
-        shown = ", ".join(users) if users else "—"
         await message.answer(
-            f"✅ لیست پرداخت مستقیم فروشنده به‌روز شد:\n<code>{shown}</code>",
+            f"✅ کانال اجباری: @{ch}",
             reply_markup=admin_reply_menu(),
         )
+        return
+
+    if flow.startswith("edu_set_media:"):
+        if query.strip() in {"-", "—"}:
+            with get_session() as session:
+                repo.set_state(session, f"admin_flow:{uid}", "")
+            await message.answer("لغو شد.")
+            return
+        await message.answer("ویدیو/عکس/فایل بفرستید، نه متن.")
         return
 
     if flow == "userinfo_ttl_edit":
@@ -3731,18 +3937,47 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
         return
 
     if flow.startswith("price_edit:"):
-        plan_id = int(flow.split(":", 1)[1])
+        # price_edit:ID  or  price_edit:friends:ID
+        bits = flow.split(":")
+        tier = "default"
+        if len(bits) >= 3 and bits[1] in ("friends", "colleagues", "default"):
+            tier = bits[1]
+            plan_id = int(bits[2])
+        else:
+            plan_id = int(bits[1])
         raw = query.replace(",", "").replace("،", "").strip()
+        if raw in {"-", "—", "clear", "پاک"}:
+            if tier == "default":
+                await message.answer("نرخ عادی را نمی‌توان پاک کرد؛ عدد بفرستید.")
+                return
+            with get_session() as session:
+                plan = repo.set_plan_tier_price(
+                    session, plan_id, tier=tier, price_toman=None
+                )
+                repo.set_state(session, f"admin_flow:{uid}", "")
+                title = plan.title if plan else "?"
+            await message.answer(
+                f"✅ نرخ ویژه «{repo.RATE_TIER_LABELS.get(tier, tier)}» "
+                f"برای <b>{title}</b> پاک شد (همان نرخ عادی).",
+                reply_markup=admin_reply_menu(),
+            )
+            return
         if not raw.isdigit():
             await message.answer("فقط عدد تومان بفرستید.")
             return
         with get_session() as session:
-            plan = repo.set_price_toman(session, plan_id, int(raw))
+            if tier == "default":
+                plan = repo.set_price_toman(session, plan_id, int(raw))
+            else:
+                plan = repo.set_plan_tier_price(
+                    session, plan_id, tier=tier, price_toman=int(raw)
+                )
             repo.set_state(session, f"admin_flow:{uid}", "")
             title = plan.title if plan else "?"
-            price = plan.price_toman if plan else 0
+            price = int(raw)
         await message.answer(
-            f"✅ قیمت <b>{title}</b> شد: <code>{price:,}</code> تومان",
+            f"✅ قیمت «{repo.RATE_TIER_LABELS.get(tier, 'عادی')}» "
+            f"<b>{title}</b>: <code>{price:,}</code> تومان",
             reply_markup=admin_reply_menu(),
         )
         return

@@ -122,6 +122,8 @@ class PricePlan(Base):
     duration_days: Mapped[int] = mapped_column(Integer, default=31)
     traffic_gb: Mapped[float | None] = mapped_column(Float, nullable=True)
     price_toman: Mapped[int] = mapped_column(Integer, default=0)
+    price_friends_toman: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    price_colleagues_toman: Mapped[int | None] = mapped_column(Integer, nullable=True)
     vendor_cost_toman: Mapped[int | None] = mapped_column(Integer, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
@@ -138,6 +140,11 @@ class CustomerProfile(Base):
     username: Mapped[str | None] = mapped_column(String(64), nullable=True)
     full_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     wallet_toman: Mapped[int] = mapped_column(Integer, default=0)
+    # default | friends | colleagues
+    rate_tier: Mapped[str] = mapped_column(String(16), default="default")
+    referred_by_telegram_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -254,6 +261,10 @@ class EducationLesson(Base):
     )
     title: Mapped[str] = mapped_column(String(128))
     body: Mapped[str] = mapped_column(Text, default="")
+    # Optional Telegram file_id for video/photo lessons
+    media_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    media_file_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    media_caption: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -588,19 +588,81 @@ class FineArtsRenewDriver:
                 log.exception("FineArts drive_create failed for %s", username)
                 return DriveResult(False, "exception", error=str(exc))
 
+    async def drive_wallet_topup(self, amount_toman: int) -> DriveResult:
+        """FineArts wallet → افزایش موجودی → amount → TetheRial card/amount."""
+        amount = max(0, int(amount_toman or 0))
+        if amount < 1000:
+            return DriveResult(
+                False,
+                "amount_too_low",
+                error="مبلغ افزایش موجودی FineArts خیلی کم است.",
+            )
+        # Serialize with NetPlus on the same Telethon session.
+        self._ui.lock = self.lock
+        async with self.lock:
+            try:
+                entity = await self.ensure_entity()
+                latest = (await self.client.get_messages(entity, limit=1))[0]
+                water = int(latest.id) if latest else 0
+
+                await self.send_text("/start")
+                wallet = None
+                for label in ("💰کیف پول", "💰 کیف پول", "کیف پول"):
+                    wallet = await self.send_text(label)
+                    if wallet and (
+                        find_data(wallet, "Add_Balance", exact=True)
+                        or "افزایش موجودی" in (wallet.message or "")
+                    ):
+                        break
+                if not wallet:
+                    return DriveResult(False, "no_wallet", error="FAIL_FA_WALLET_OPEN")
+                wallet = await self._ui._await_stable(wallet, timeout=2.0) or wallet
+
+                add = wallet
+                if find_data(wallet, "Add_Balance", exact=True):
+                    add = await self.click_data(wallet, "Add_Balance") or wallet
+                else:
+                    for b in flat_buttons(wallet):
+                        t = b.get("text") or ""
+                        d = b.get("callback_data") or ""
+                        if "افزایش" in t or "Add_Balance" in d:
+                            add = await self.click_data(wallet, d) or wallet
+                            break
+                add = await self._ui._await_stable(add, timeout=2.0) or add
+
+                before = (await self.client.get_messages(entity, limit=1))[0].id
+                await self.client.send_message(entity, str(amount))
+                after_amt = await self._wait_bot(before, timeout=18.0)
+                after_amt = await self._ui._await_stable(after_amt, timeout=2.5) or after_amt
+                if not after_amt:
+                    return DriveResult(
+                        False, "no_reply_after_amount", error="FAIL_FA_TOPUP_AMOUNT"
+                    )
+                gate = max(water, int(after_amt.id))
+                return await self._walk_finearts_to_tetherial(after_amt, after_id=gate)
+            except Exception as exc:
+                log.exception("FineArts drive_wallet_topup failed amount=%s", amount)
+                return DriveResult(False, "exception", error=str(exc))
+
     async def click_receipt(
         self, receipt_callback: str, payment_message_id: int | None
     ) -> bool:
-        # External Tetherial pay — no in-bot receipt callback.
+        # External Tetherial pay — no in-bot receipt callback on FineArts itself.
         _ = (receipt_callback, payment_message_id)
         return False
 
     async def send_receipt_photo(
         self, file_bytes: bytes, filename: str = "receipt.jpg"
     ) -> bool:
-        # Payments happen in Tetherial bot; forwarding a photo here is unused.
-        _ = (file_bytes, filename)
-        return False
+        """Forward customer receipt to TetheRial (FineArts card gateway)."""
+        async with self.lock:
+            from io import BytesIO
+
+            teth = await self.client.get_entity(f"@{TETHERIAL_BOT}")
+            bio = BytesIO(file_bytes)
+            bio.name = filename
+            await self.client.send_file(teth, bio)
+            return True
 
     async def click_back_to_list(self) -> None:
         # After renew/create success leave the vendor success message as last state.

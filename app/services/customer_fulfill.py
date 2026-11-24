@@ -33,6 +33,7 @@ async def enqueue_fulfillment(order_id: int, *, requested_by: int | None = None)
     Idempotent if already fulfilling/done with a job.
     Refuses cancelled / rejected / expired / unpaid open statuses.
     """
+    referral_info = None
     with get_session() as session:
         order = repo.get_customer_order(session, order_id)
         if not order:
@@ -51,6 +52,11 @@ async def enqueue_fulfillment(order_id: int, *, requested_by: int | None = None)
             return {"ok": False, "error": "not_paid", "status": order.status}
         if order.status not in FULFILL_ALLOWED and order.pay_source != "wallet":
             return {"ok": False, "error": "bad_status", "status": order.status}
+
+        try:
+            referral_info = repo.apply_referral_credit_for_order(session, order)
+        except Exception:
+            log.exception("referral credit on fulfill failed order=%s", order_id)
 
         uname = order.service_username
         kind = order.kind
@@ -124,6 +130,19 @@ async def enqueue_fulfillment(order_id: int, *, requested_by: int | None = None)
         jid = job.id
         # stash for notify
         _ = traffic_gb
+
+    if referral_info and referral_info.get("ok") and customer_bridge.customer_bot:
+        try:
+            await customer_bridge.customer_bot.send_message(
+                int(referral_info["referrer_id"]),
+                f"🎁 کمیسیون مجموعه‌گیری\n"
+                f"{int(referral_info.get('percent') or 0)}٪ از خرید زیرمجموعه‌تان "
+                f"به کیف پول واریز شد.\n"
+                f"مبلغ: <b>{int(referral_info['amount']):,}</b> تومان\n"
+                f"موجودی جدید: <b>{int(referral_info.get('balance') or 0):,}</b> تومان",
+            )
+        except Exception:
+            log.exception("referral notify on fulfill failed order=%s", order_id)
 
     if not customer_bridge.wake_renew_queue():
         log.warning("wake renew queue skipped (queue offline)")

@@ -16,6 +16,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     Message,
     ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
 )
 
 from app.config import Settings
@@ -197,6 +198,10 @@ def _telegram_identity_label(uid: int, user=None) -> str:
             if profile.full_name:
                 return profile.full_name
     return str(uid)
+
+
+def _price_for_uid(session, plan, uid: int) -> int:
+    return repo.sell_price_for_customer(session, plan, uid)
 
 
 def _parse_amount_toman(text: str) -> int | None:
@@ -629,7 +634,47 @@ async def cmd_start(message: Message) -> None:
     _track(message)
     uid = message.from_user.id if message.from_user else 0
     _set_flow(uid, "")
-    await message.answer(_msg("welcome"), reply_markup=customer_menu())
+    # Deep-link: /start rt_TOKEN (one-time friends/colleagues rate) or /start ref_TGID
+    payload = ""
+    if message.text and message.text.startswith("/start"):
+        parts = message.text.split(maxsplit=1)
+        if len(parts) > 1:
+            payload = parts[1].strip()
+    invite_note = ""
+    if payload and uid:
+        with get_session() as session:
+            user = message.from_user
+            repo.upsert_customer_profile(
+                session,
+                uid,
+                username=getattr(user, "username", None) if user else None,
+                full_name=(
+                    ((user.first_name or "") + " " + (user.last_name or "")).strip()
+                    if user
+                    else None
+                ),
+            )
+            if payload.startswith("rt_"):
+                tier = repo.consume_rate_tier_invite(session, payload[3:], uid)
+                if tier:
+                    label = repo.RATE_TIER_LABELS.get(tier, tier)
+                    invite_note = (
+                        f"\n\n✅ نرخ ویژه «{label}» برای شما فعال شد."
+                    )
+                else:
+                    invite_note = "\n\n⚠️ لینک دعوت نامعتبر یا قبلاً استفاده شده."
+            elif payload.startswith("ref_"):
+                digits = "".join(ch for ch in payload[4:] if ch.isdigit())
+                if digits:
+                    ok = repo.set_referred_by_if_empty(session, uid, int(digits))
+                    if ok:
+                        invite_note = (
+                            "\n\n✅ زیرمجموعه ثبت شد؛ "
+                            "با خرید/تمدید، کمیسیون به معرف واریز می‌شود."
+                        )
+    await message.answer(
+        _msg("welcome") + invite_note, reply_markup=customer_menu()
+    )
 
 
 @router.message(Command("menu"))
@@ -638,6 +683,44 @@ async def cmd_menu(message: Message) -> None:
     # Refresh persistent reply keyboard, then show inline hub on the next message.
     await message.answer("⌨️ منوی پایین به‌روز شد.", reply_markup=customer_menu())
     await _show_customer_home(message, edit=False)
+
+
+@router.message(F.text.func(lambda t: bool(t) and t in _cust_labels("hide_menu")))
+async def hide_main_menu(message: Message) -> None:
+    """NetPlus-style: hide the bottom reply keyboard until /menu or /start."""
+    _track(message)
+    await message.answer(
+        "منوی پایین مخفی شد.\n"
+        "برای نمایش دوباره از /menu یا /start استفاده کنید.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+@router.callback_query(F.data == "cust:channel:check")
+async def cust_channel_check(callback: CallbackQuery) -> None:
+    from app.telegram.channel_gate import (
+        get_required_channel,
+        join_channel_keyboard,
+        user_is_channel_member,
+    )
+
+    uid = callback.from_user.id if callback.from_user else 0
+    channel = get_required_channel()
+    bot = callback.bot
+    ok = await user_is_channel_member(bot, uid, channel) if bot else False
+    if not ok:
+        await callback.answer("هنوز عضو کانال نیستید", show_alert=True)
+        await callback.message.answer(
+            "لطفاً اول عضو کانال شوید، بعد دوباره امتحان کنید.",
+            reply_markup=join_channel_keyboard(channel),
+        )
+        return
+    await callback.answer("عضویت تایید شد ✅")
+    await callback.message.answer(
+        "✅ عضویت تایید شد. از منوی پایین استفاده کنید.",
+        reply_markup=customer_menu(),
+    )
+    await _show_customer_home(callback.message, edit=False)
 
 
 @router.message(Command("help"))
@@ -662,6 +745,9 @@ async def _show_education_lesson(
         title = lesson.title
         body = lesson.body
         cat_id = lesson.category_id
+        media_type = (getattr(lesson, "media_type", None) or "").strip().lower()
+        media_file_id = (getattr(lesson, "media_file_id", None) or "").strip()
+        media_caption = getattr(lesson, "media_caption", None)
     back_cb = back_callback or f"cust:edu:cat:{cat_id}"
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -669,12 +755,35 @@ async def _show_education_lesson(
             [InlineKeyboardButton(text="🏠 منوی اصلی", callback_data="cust:home")],
         ]
     )
-    await _ui_show(
-        message,
-        f"📚 <b>{title}</b>\n\n{body}",
-        reply_markup=kb,
-        edit=edit,
-    )
+    text = f"📚 <b>{title}</b>\n\n{body}"
+    if media_file_id and media_type in {"video", "photo", "animation", "document"}:
+        # Prefer a fresh message for media (edit cannot always swap media types).
+        caption = (media_caption or "").strip() or title
+        if len(caption) > 900:
+            caption = caption[:900] + "…"
+        try:
+            if media_type == "video":
+                await message.answer_video(
+                    media_file_id, caption=caption, reply_markup=kb
+                )
+            elif media_type == "photo":
+                await message.answer_photo(
+                    media_file_id, caption=caption, reply_markup=kb
+                )
+            elif media_type == "animation":
+                await message.answer_animation(
+                    media_file_id, caption=caption, reply_markup=kb
+                )
+            else:
+                await message.answer_document(
+                    media_file_id, caption=caption, reply_markup=kb
+                )
+            if body.strip():
+                await message.answer(text, reply_markup=kb)
+            return True
+        except Exception:
+            log.exception("education media send failed lesson=%s", lesson_id)
+    await _ui_show(message, text, reply_markup=kb, edit=edit)
     return True
 
 
@@ -774,24 +883,34 @@ async def edu_lesson(callback: CallbackQuery) -> None:
 @router.message(Command("prices"))
 async def show_prices(message: Message) -> None:
     _track(message)
+    uid = message.from_user.id if message.from_user else 0
     with get_session() as session:
         text = repo.get_pricing_text(session)
         plans = repo.list_price_plans(session, enabled_only=True)
-    # If admin left default short text, append live plan table
-    if text.strip() == repo.DEFAULT_PRICING_TEXT.strip() and plans:
-        lines = [text, ""]
-        for idx, p in enumerate(plans):
-            if idx:
-                lines.append("────────────")
-            gb = f"{int(p.traffic_gb)} گیگ" if p.traffic_gb else "حجم توافقی"
-            icon = ICON_VOLUME if int(p.duration_days or 0) == 0 else ICON_ECONOMY
-            dur = "نامحدود زمانی" if int(p.duration_days or 0) == 0 else f"{p.duration_days} روز"
-            lines.append(
-                f"{icon} <b>{p.title}</b>\n"
-                f"  {gb} · {dur}\n"
-                f"  💵 <code>{p.price_toman:,}</code> تومان"
-            )
-        text = "\n".join(lines)
+        tier = repo.get_customer_rate_tier(session, uid) if uid else "default"
+        # If admin left default short text, append live plan table
+        if text.strip() == repo.DEFAULT_PRICING_TEXT.strip() and plans:
+            lines = [text, ""]
+            tier_fa = repo.RATE_TIER_LABELS.get(tier, tier)
+            if tier != "default":
+                lines.append(f"🏷 نرخ فعال شما: <b>{tier_fa}</b>\n")
+            for idx, p in enumerate(plans):
+                if idx:
+                    lines.append("────────────")
+                gb = f"{int(p.traffic_gb)} گیگ" if p.traffic_gb else "حجم توافقی"
+                icon = ICON_VOLUME if int(p.duration_days or 0) == 0 else ICON_ECONOMY
+                dur = (
+                    "نامحدود زمانی"
+                    if int(p.duration_days or 0) == 0
+                    else f"{p.duration_days} روز"
+                )
+                price = _price_for_uid(session, p, uid)
+                lines.append(
+                    f"{icon} <b>{p.title}</b>\n"
+                    f"  {gb} · {dur}\n"
+                    f"  💵 <code>{price:,}</code> تومان"
+                )
+            text = "\n".join(lines)
     await message.answer(text, reply_markup=customer_menu())
 
 
@@ -1041,6 +1160,7 @@ async def _show_volumes(message: Message, draft: dict, *, edit: bool = False) ->
     raw_days = draft.get("duration_days")
     days = int(raw_days) if raw_days is not None else 31
     panel = str(draft.get("panel") or "economy")
+    uid = message.from_user.id if message.from_user else 0
     rows: list[list[InlineKeyboardButton]] = []
     icon = ICON_VOLUME if days == 0 else ICON_ECONOMY
     with get_session() as session:
@@ -1053,8 +1173,9 @@ async def _show_volumes(message: Message, draft: dict, *, edit: bool = False) ->
         ]
         for plan in plans:
             gb = int(plan.traffic_gb) if plan.traffic_gb else 0
+            price = _price_for_uid(session, plan, uid)
             label = (
-                f"{icon} {gb} گیگ — {plan.price_toman:,} ت"
+                f"{icon} {gb} گیگ — {price:,} ت"
                 if gb
                 else f"{icon} {plan.title}"
             )
@@ -1102,6 +1223,7 @@ async def _show_invoice(message: Message, uid: int, draft: dict, *, edit: bool =
     with get_session() as session:
         plan = repo.get_price_plan(session, plan_id)
         bal = repo.get_wallet_toman(session, uid)
+        price = _price_for_uid(session, plan, uid) if plan else 0
         if kind == "create":
             ok, reason = repo.is_username_available_for_create(session, username, uid)
             if not ok:
@@ -1142,13 +1264,12 @@ async def _show_invoice(message: Message, uid: int, draft: dict, *, edit: bool =
         f"👤 نام کاربری: <b>{username}</b>\n"
         f"⏱ مدت: <b>{dur_label}</b>\n"
         f"🔋 حجم: <b>{gb}</b>\n"
-        f"💸 مبلغ: <b>{plan.price_toman:,}</b> تومان\n"
+        f"💸 مبلغ: <b>{price:,}</b> تومان\n"
         f"💰 موجودی کیف پول: <b>{bal:,}</b> تومان\n\n"
         "روش پرداخت را انتخاب کنید:"
     )
     prefix = "cust:renew:pay" if kind == "renew" else "cust:buy:pay"
     rows: list[list[InlineKeyboardButton]] = []
-    price = plan.price_toman
     if bal >= price:
         rows.append(
             [
@@ -1237,7 +1358,7 @@ async def _execute_shop_pay(
                     await callback.answer("نام کاربری در دسترس نیست", show_alert=True)
                     return
             bal = repo.get_wallet_toman(session, uid)
-            price = plan.price_toman
+            price = _price_for_uid(session, plan, uid)
             if mode == "full":
                 apply = price
             elif mode == "mix":
@@ -1764,11 +1885,20 @@ def _format_service_info(sub, username: str) -> str:
     product = sub.product_name or "—"
     expire_line = format_expire_display(getattr(sub, "expiration_date", None))
     icon = _plan_icon(sub)
+    remain = getattr(sub, "remaining_traffic_mb", None)
+    limit = getattr(sub, "traffic_limit_mb", None)
+    pct = ""
+    try:
+        if remain is not None and limit is not None and float(limit) > 0:
+            pct = f" · {int(round(100.0 * float(remain) / float(limit)))}٪"
+    except (TypeError, ValueError):
+        pct = ""
     return (
         f"📡 وضعیت: <b>{status_fa(sub.status)}</b>\n"
         f"{icon} نام سرویس: <b>{ltr(sub.username)}</b> {icon}\n"
         f"{icon} محصول: {product}\n\n"
-        f"✅ حجم باقی‌مانده: {format_mb(sub.remaining_traffic_mb)}\n"
+        f"✅ حجم باقی‌مانده (مانده از خریدهای قبلی): "
+        f"{format_mb(remain)}{pct}\n"
         f"📅 تاریخ اتمام : {expire_line}\n\n"
         "💡 برای قطع دسترسی دیگران از «🔐 تغییر لینک» استفاده کنید."
     )
@@ -2349,6 +2479,7 @@ async def _show_renew_volumes(
     raw_days = draft.get("duration_days")
     days = int(raw_days) if raw_days is not None else 31
     panel = str(draft.get("panel") or "economy")
+    uid = message.from_user.id if message.from_user else 0
     rows: list[list[InlineKeyboardButton]] = []
     icon = ICON_VOLUME if days == 0 else ICON_ECONOMY
     with get_session() as session:
@@ -2361,8 +2492,9 @@ async def _show_renew_volumes(
         ]
         for plan in plans:
             gb = int(plan.traffic_gb) if plan.traffic_gb else 0
+            price = _price_for_uid(session, plan, uid)
             label = (
-                f"{icon} {gb} گیگ — {plan.price_toman:,} ت"
+                f"{icon} {gb} گیگ — {price:,} ت"
                 if gb
                 else f"{icon} {plan.title}"
             )
@@ -2615,26 +2747,61 @@ async def _wallet_home_ui(
     with get_session() as session:
         bal = repo.get_wallet_toman(session, uid)
         mn, mx = repo.get_wallet_limits(session)
+        pct = repo.get_referral_percent(session)
+        tier = repo.get_customer_rate_tier(session, uid)
+    ref_link = ""
+    try:
+        me = await message.bot.get_me()
+        if me.username:
+            ref_link = f"https://t.me/{me.username}?start=ref_{uid}"
+    except Exception:
+        ref_link = ""
+    tier_fa = repo.RATE_TIER_LABELS.get(tier, tier)
     lines = [
         "💰 <b>کیف پول</b>\n",
-        "🆔 شناسه تلگرام",
-        f"<pre>{uid}</pre>",
+        "🆔 <b>شناسه کاربری تلگرام</b>",
+        f"<blockquote><code>{uid}</code></blockquote>",
+        "👆 نگه دارید روی شناسه یا دکمه کپی را بزنید.\n",
         f"💳 موجودی قابل استفاده: <b>{bal:,}</b> تومان",
         f"📉 حداقل شارژ: <b>{mn:,}</b> تومان",
         f"📈 حداکثر شارژ: <b>{mx:,}</b> تومان",
+        f"🏷 نرخ شما: <b>{tier_fa}</b>",
         "⚠️ امکان برداشت وجه از کیف پول وجود ندارد.\n",
     ]
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
+    if pct > 0 and ref_link:
+        lines.append(
+            f"🎁 مجموعه‌گیری ({pct}٪):\n<code>{ref_link}</code>\n"
+            "با خرید/تمدید زیرمجموعه‌تان، کمیسیون به کیف پول‌تان واریز می‌شود.\n"
+        )
+    kb_rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text="📋 کپی شناسه کاربری",
+                copy_text=CopyTextButton(text=str(uid)),
+            )
+        ],
+    ]
+    if ref_link:
+        kb_rows.append(
             [
                 InlineKeyboardButton(
-                    text="➕ افزایش موجودی",
-                    callback_data="cust:wallet:charge",
+                    text="📋 کپی لینک مجموعه‌گیری",
+                    copy_text=CopyTextButton(text=ref_link),
                 )
-            ],
-            [InlineKeyboardButton(text="🏠 منوی اصلی", callback_data="cust:home")],
+            ]
+        )
+    kb_rows.append(
+        [
+            InlineKeyboardButton(
+                text="➕ افزایش موجودی",
+                callback_data="cust:wallet:charge",
+            )
         ]
     )
+    kb_rows.append(
+        [InlineKeyboardButton(text="🏠 منوی اصلی", callback_data="cust:home")]
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
     await _ui_show(message, "\n".join(lines), reply_markup=kb, edit=edit)
 
 
@@ -2998,7 +3165,16 @@ async def cancel_order(callback: CallbackQuery) -> None:
             return
         refunded = repo.cancel_customer_order(session, order, reason="customer_cancel")
         repo.set_state(session, f"cust_flow:{uid}", "")
-    msg = "سفارش لغو شد."
+    # Remove pay/card instructions so the customer cannot pay a cancelled order by mistake.
+    try:
+        await cleanup_customer_order_ui(uid, order_id)
+    except Exception:
+        log.exception("cleanup after cancel failed order=%s", order_id)
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    msg = "سفارش لغو شد و پیام‌های پرداخت پاک شد."
     if refunded:
         msg += f"\n<code>{refunded:,}</code> تومان به کیف پول برگشت."
     await callback.message.answer(msg, reply_markup=customer_menu())
