@@ -224,9 +224,13 @@ async def maybe_forward_stale_receipts() -> None:
         await forward_receipt_to_vendor(oid)
 
 
-async def forward_receipt_to_vendor(order_id: int) -> dict:
+async def forward_receipt_to_vendor(order_id: int, *, force: bool = False) -> dict:
+    """Click vendor «ارسال رسید» then upload the stored customer receipt photo."""
     with get_session() as session:
-        if (repo.get_state(session, _forwarded_key(order_id)) or "").strip() == "1":
+        if (
+            not force
+            and (repo.get_state(session, _forwarded_key(order_id)) or "").strip() == "1"
+        ):
             return {"ok": True, "already": True}
         packed = _load_receipt_bytes(session, order_id)
         meta = load_meta(session, order_id)
@@ -235,6 +239,16 @@ async def forward_receipt_to_vendor(order_id: int) -> dict:
         file_bytes, filename = packed
         receipt_cb = meta.get("receipt_callback")
         pay_mid = meta.get("payment_message_id")
+        order = repo.get_customer_order(session, order_id)
+        if order and order.status in (
+            "done",
+            "fulfilling",
+            "approved",
+            "rejected",
+            "cancelled",
+            "expired",
+        ):
+            return {"ok": False, "error": f"bad_status:{order.status}"}
 
     from app.telegram import customer_bridge
     from app.vendors.registry import get_vendor_driver
@@ -248,9 +262,13 @@ async def forward_receipt_to_vendor(order_id: int) -> dict:
         return {"ok": False, "error": "driver_unavailable"}
 
     try:
-        if receipt_cb:
+        # Vendor UI requires pressing «ارسال رسید» before the photo upload.
+        if hasattr(driver, "click_receipt"):
             try:
-                await driver.click_receipt(str(receipt_cb), int(pay_mid) if pay_mid else None)
+                await driver.click_receipt(
+                    str(receipt_cb) if receipt_cb else "",
+                    int(pay_mid) if pay_mid else None,
+                )
             except Exception:
                 log.exception("vendor_direct click_receipt failed order=%s", order_id)
         await driver.send_receipt_photo(file_bytes, filename=filename or "receipt.jpg")
@@ -262,7 +280,9 @@ async def forward_receipt_to_vendor(order_id: int) -> dict:
         repo.set_state(session, _forwarded_key(order_id), "1")
         order = repo.get_customer_order(session, order_id)
         if order:
-            order.note = (order.note or "") + "|vendor_receipt_forwarded"
+            note = order.note or ""
+            if "|vendor_receipt_forwarded" not in note:
+                order.note = (note + "|vendor_receipt_forwarded").strip("|")
             repo.touch_customer_order(order)
     return {"ok": True}
 

@@ -937,9 +937,18 @@ def count_by_status(session: Session) -> dict[str, int]:
 
 
 def track_admin_order_ui_message(
-    session: Session, order_id: int, chat_id: int, message_id: int
+    session: Session,
+    order_id: int,
+    chat_id: int,
+    message_id: int,
+    *,
+    delete_on_done: bool = True,
 ) -> None:
-    """Remember admin-bot review messages so panel/bot approve can clear buttons."""
+    """Remember admin-bot review messages so approve/reject can clear them.
+
+    delete_on_done=True → delete the message after confirm/reject (receipt/ping).
+    delete_on_done=False → only strip buttons (shared requests list pages).
+    """
     key = f"admin_order_ui:{int(order_id)}"
     raw = (get_state(session, key) or "").strip()
     rows: list[list[int]] = []
@@ -952,31 +961,37 @@ def track_admin_order_ui_message(
                         isinstance(item, (list, tuple))
                         and len(item) >= 2
                     ):
-                        rows.append([int(item[0]), int(item[1])])
+                        flag = int(item[2]) if len(item) >= 3 else 1
+                        rows.append([int(item[0]), int(item[1]), flag])
         except (json.JSONDecodeError, TypeError, ValueError):
             rows = []
-    pair = [int(chat_id), int(message_id)]
-    if pair not in rows:
-        rows.append(pair)
+    pair = [int(chat_id), int(message_id), 1 if delete_on_done else 0]
+    # Replace same chat/mid entry so the latest flag wins.
+    rows = [r for r in rows if not (r[0] == pair[0] and r[1] == pair[1])]
+    rows.append(pair)
     set_state(session, key, json.dumps(rows[-40:]))
 
 
 def pop_admin_order_ui_messages(
     session: Session, order_id: int
-) -> list[tuple[int, int]]:
-    """Pop and clear tracked admin review messages for an order."""
+) -> list[tuple[int, int, bool]]:
+    """Pop and clear tracked admin review messages for an order.
+
+    Returns (chat_id, message_id, delete_on_done).
+    """
     key = f"admin_order_ui:{int(order_id)}"
     raw = (get_state(session, key) or "").strip()
     set_state(session, key, "")
     if not raw:
         return []
-    out: list[tuple[int, int]] = []
+    out: list[tuple[int, int, bool]] = []
     try:
         data = json.loads(raw)
         if isinstance(data, list):
             for item in data:
                 if isinstance(item, (list, tuple)) and len(item) >= 2:
-                    out.append((int(item[0]), int(item[1])))
+                    flag = True if len(item) < 3 else bool(int(item[2]))
+                    out.append((int(item[0]), int(item[1]), flag))
     except (json.JSONDecodeError, TypeError, ValueError):
         return []
     return out

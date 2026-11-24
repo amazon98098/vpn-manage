@@ -450,14 +450,9 @@ async def _notify_after_confirm(
         settings = load_settings(require_bot=True)
         for admin_id in settings.admin_ids:
             try:
-                sent = await customer_bridge.admin_bot.send_message(
+                await customer_bridge.admin_bot.send_message(
                     admin_id, text, reply_markup=kb
                 )
-                if oid and sent and getattr(sent, "message_id", None):
-                    with get_session() as session:
-                        repo.track_admin_order_ui_message(
-                            session, oid, admin_id, int(sent.message_id)
-                        )
             except Exception:
                 log.exception("notify admin after confirm failed")
 
@@ -584,6 +579,19 @@ async def _apply_paid_order(
             except Exception:
                 log.exception("manual-approval customer notice failed order=%s", oid)
     else:
+        # Drop prior admin approve/reject receipt chats once payment is settled.
+        if source not in ("admin_manual", "admin_web"):
+            try:
+                from app.services.admin_order_actions import (
+                    cleanup_tracked_admin_order_ui,
+                )
+
+                await cleanup_tracked_admin_order_ui(
+                    oid,
+                    summary=f"✅ سفارش #{oid} تایید شد ({source})",
+                )
+            except Exception:
+                log.exception("cleanup admin review UI failed order=%s", oid)
         await _notify_after_confirm(
             oid=oid,
             tg=tg,

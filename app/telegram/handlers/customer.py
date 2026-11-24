@@ -3331,26 +3331,34 @@ async def on_receipt_media(message: Message, settings: Settings) -> None:
                 if kind == "wallet"
                 else "✅ تایید و صف سرویس"
             )
-            kb = InlineKeyboardMarkup(
-                inline_keyboard=[
+            rows_kb: list[list[InlineKeyboardButton]] = [
+                [
+                    InlineKeyboardButton(
+                        text=approve_label,
+                        callback_data=f"corder:ok:{oid}",
+                    ),
+                    InlineKeyboardButton(
+                        text="🚫 رد با دلیل",
+                        callback_data=f"corder:no:{oid}",
+                    ),
+                ]
+            ]
+            if vendor_direct_receipt:
+                rows_kb.append(
                     [
                         InlineKeyboardButton(
-                            text=approve_label,
-                            callback_data=f"corder:ok:{oid}",
-                        ),
-                        InlineKeyboardButton(
-                            text="🚫 رد با دلیل",
-                            callback_data=f"corder:no:{oid}",
-                        ),
+                            text="📤 ارسال رسید به فروشنده",
+                            callback_data=f"corder:vendor_fwd:{oid}",
+                        )
                     ]
-                ]
-            )
+                )
+            kb = InlineKeyboardMarkup(inline_keyboard=rows_kb)
             received = repo.get_bot_message(session, "receipt_received")
             if vendor_direct_receipt:
                 received = (
                     "✅ رسید دریافت شد.\n"
                     "در حال بررسی تایید پرداخت… "
-                    "اگر تا حدود ۳ دقیقه خودکار تایید نشد، رسید برای پیگیری ارسال می‌شود."
+                    "اگر خودکار تایید نشد، ادمین می‌تواند رسید را به فروشنده بفرستد."
                 )
             elif resubmit:
                 received = (
@@ -3441,14 +3449,28 @@ async def on_receipt_media(message: Message, settings: Settings) -> None:
     elif oid:
         # Short text ping so admins notice even if media caption is collapsed.
         try:
-            await customer_bridge.notify_admins_action_required(
+            sent_list = await customer_bridge.notify_admins_action_required(
                 settings.admin_ids,
                 (
                     f"🔔 <b>تراکنش جهت تایید</b> — سفارش #{oid}\n"
                     f"رسید دریافت شد؛ لطفاً تایید یا رد کنید."
+                    + (
+                        "\nدر صورت نیاز: «ارسال رسید به فروشنده»."
+                        if vendor_direct_receipt
+                        else ""
+                    )
                 ),
                 reply_markup=kb,
             )
+            with get_session() as session:
+                for sent in sent_list or []:
+                    mid = getattr(sent, "message_id", None)
+                    chat = getattr(sent, "chat", None)
+                    chat_id = getattr(chat, "id", None) if chat else None
+                    if mid and chat_id:
+                        repo.track_admin_order_ui_message(
+                            session, oid, int(chat_id), int(mid)
+                        )
         except Exception:
             log.exception("admin pending-tx ping failed order=%s", oid)
     try:

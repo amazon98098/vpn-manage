@@ -1686,6 +1686,17 @@ async def _render_requests_bucket(
                     )
                 ]
             )
+        if st in ("awaiting_payment", "receipt_window", "awaiting_review") and (
+            repo.order_is_vendor_direct(o)
+        ):
+            kb_rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"📤 ارسال به فروشنده #{o.id}",
+                        callback_data=f"corder:vendor_fwd:{o.id}",
+                    )
+                ]
+            )
         if st in ("fulfilling", "approved") or (
             st == "done" and o.renew_job_id
         ):
@@ -1742,7 +1753,11 @@ async def _render_requests_bucket(
                         "fulfilling",
                     ):
                         repo.track_admin_order_ui_message(
-                            session, int(o.id), int(chat_id), mid
+                            session,
+                            int(o.id),
+                            int(chat_id),
+                            mid,
+                            delete_on_done=False,
                         )
 
 
@@ -3165,6 +3180,44 @@ async def cb_own_bulk_confirm(callback: CallbackQuery, settings: Settings) -> No
     await callback.answer("انجام شد")
 
 
+@router.callback_query(F.data.startswith("corder:vendor_fwd:"))
+async def customer_order_vendor_forward(
+    callback: CallbackQuery, settings: Settings
+) -> None:
+    """Manual: click vendor «ارسال رسید» then upload stored customer receipt."""
+    if not is_admin(callback.from_user.id, settings):
+        return
+    order_id = int((callback.data or "").rsplit(":", 1)[1])
+    await callback.answer("در حال ارسال به فروشنده…")
+    from app.services.vendor_direct_pay import forward_receipt_to_vendor
+
+    result = await forward_receipt_to_vendor(order_id, force=True)
+    if not result.get("ok"):
+        err = result.get("error") or "fail"
+        await callback.answer(f"ناموفق: {err}", show_alert=True)
+        if callback.message:
+            try:
+                await callback.message.answer(
+                    f"❌ ارسال رسید سفارش #{order_id} به فروشنده ناموفق بود:\n"
+                    f"<code>{err}</code>"
+                )
+            except Exception:
+                pass
+        return
+    if result.get("already"):
+        await callback.answer("قبلاً ارسال شده بود", show_alert=True)
+        return
+    await callback.answer("ارسال شد ✅", show_alert=True)
+    if callback.message:
+        try:
+            await callback.message.answer(
+                f"📤 رسید سفارش #{order_id} به فروشنده ارسال شد "
+                "(دکمه ارسال رسید زده شد، سپس عکس فرستاده شد)."
+            )
+        except Exception:
+            pass
+
+
 @router.callback_query(F.data.startswith("corder:ok:"))
 async def customer_order_approve(
     callback: CallbackQuery, settings: Settings, renew_queue: RenewQueue
@@ -3174,7 +3227,7 @@ async def customer_order_approve(
     if not is_admin(callback.from_user.id, settings):
         return
     order_id = int((callback.data or "").rsplit(":", 1)[1])
-    # Track the message the admin tapped so panel/other copies are not the only ones cleared.
+    # Track the message the admin tapped so it is deleted with other review chats.
     if callback.message and callback.from_user:
         with get_session() as session:
             repo.track_admin_order_ui_message(
@@ -3182,6 +3235,7 @@ async def customer_order_approve(
                 order_id,
                 int(callback.message.chat.id),
                 int(callback.message.message_id),
+                delete_on_done=True,
             )
     from app.services.admin_order_actions import approve_customer_order
 
@@ -3197,32 +3251,8 @@ async def customer_order_approve(
     if result.get("already"):
         await callback.answer("قبلاً در صف/انجام است", show_alert=True)
         return
-    await callback.answer("تایید شد")
-    # Shared approve already edited/stripped tracked messages; refresh this chat if needed.
-    if callback.message:
-        kind = result.get("kind") or ""
-        if kind == "wallet":
-            bal = result.get("balance") or 0
-            credited = result.get("credited")
-            await _ui_show(
-                callback.message,
-                f"✅ شارژ کیف پول سفارش #{order_id}\n"
-                f"موجودی <code>{bal:,}</code> ت"
-                + ("" if credited else "\n(قبلاً شارژ شده بود)"),
-                edit=True,
-            )
-        else:
-            await _ui_show(
-                callback.message,
-                f"✅ سفارش #{order_id} تایید شد.\n"
-                f"مسیر: {result.get('via') or 'ok'}"
-                + (
-                    f" → صف #{result.get('job_id')}"
-                    if result.get("job_id")
-                    else ""
-                ),
-                edit=True,
-            )
+    # Tracked receipt/approve messages are deleted inside approve_customer_order.
+    await callback.answer("تایید شد — پیام‌های بررسی پاک شد", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("corder:manual_done:"))
@@ -3314,18 +3344,23 @@ async def customer_order_confirm_amount(
     if not amount:
         await callback.answer("مبلغ یکتای ریال روی سفارش نیست", show_alert=True)
         return
+    if callback.message and callback.message.chat:
+        with get_session() as session:
+            repo.track_admin_order_ui_message(
+                session,
+                order_id,
+                int(callback.message.chat.id),
+                int(callback.message.message_id),
+                delete_on_done=True,
+            )
     result = await auto_confirm_by_amount(amount, source="admin_amount_btn")
     if not result.get("ok"):
         await callback.answer(
             f"ناموفق: {result.get('error') or result}", show_alert=True
         )
         return
-    await callback.answer("تایید شد")
-    await _ui_show(
-        callback.message,
-        f"⚡ تایید مبلغ <code>{amount}</code> برای سفارش #{order_id}\n"
-        f"یوزر <code>{uname}</code> — مشتری مطلع شد / صف فعال شد.",
-        edit=True,
+    await callback.answer(
+        f"تایید شد — {uname} / مبلغ {amount}", show_alert=True
     )
 
 
@@ -3344,6 +3379,14 @@ async def customer_order_reject(callback: CallbackQuery, settings: Settings) -> 
             return
         uid = callback.from_user.id if callback.from_user else 0
         repo.set_state(session, f"admin_flow:{uid}", f"reject_reason:{order_id}")
+        if callback.message and callback.message.chat:
+            repo.track_admin_order_ui_message(
+                session,
+                order_id,
+                int(callback.message.chat.id),
+                int(callback.message.message_id),
+                delete_on_done=True,
+            )
     await callback.answer()
     await callback.message.answer(
         f"❌ دلیل رد سفارش #{order_id} را بنویسید.\n"
@@ -3830,7 +3873,20 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
             repo.set_state(session, f"cust_flow:{cust_tg}", f"ticket:{ticket.id}")
             ticket_id = ticket.id
         from app.telegram import customer_bridge
+        from app.services.admin_order_actions import cleanup_tracked_admin_order_ui
+        from app.telegram.handlers.customer import cleanup_customer_order_ui
 
+        try:
+            await cleanup_customer_order_ui(cust_tg, order_id)
+        except Exception:
+            pass
+        try:
+            await cleanup_tracked_admin_order_ui(
+                order_id,
+                summary=f"❌ سفارش #{order_id} رد شد",
+            )
+        except Exception:
+            pass
         if customer_bridge.customer_bot:
             try:
                 await customer_bridge.customer_bot.send_message(cust_tg, notice)

@@ -26,19 +26,34 @@ async def _notify_admins_panel_action(text: str) -> None:
             log.exception("admin panel-action notify failed tg=%s", admin_id)
 
 
-async def _update_tracked_admin_order_ui(order_id: int, text: str) -> None:
-    """Strip approve buttons on prior admin review / requests-list messages for this order."""
+async def cleanup_tracked_admin_order_ui(
+    order_id: int, *, summary: str | None = None
+) -> None:
+    """Delete receipt/approve chats; strip buttons on shared requests lists."""
     bot = customer_bridge.admin_bot
     if not bot:
         return
     with get_session() as session:
         entries = repo.pop_admin_order_ui_messages(session, order_id)
     seen: set[tuple[int, int]] = set()
-    for chat_id, mid in entries:
+    for chat_id, mid, delete_on_done in entries:
         key = (int(chat_id), int(mid))
         if key in seen:
             continue
         seen.add(key)
+        if delete_on_done:
+            try:
+                await bot.delete_message(chat_id, mid)
+                continue
+            except Exception:
+                log.debug(
+                    "admin order ui delete failed order=%s chat=%s mid=%s",
+                    order_id,
+                    chat_id,
+                    mid,
+                )
+        # Shared list / fallback: strip buttons; optionally rewrite text.
+        text = summary or "✅/❌ این سفارش بسته شد."
         updated = False
         try:
             await bot.edit_message_caption(
@@ -60,16 +75,18 @@ async def _update_tracked_admin_order_ui(order_id: int, text: str) -> None:
                 await bot.edit_message_reply_markup(
                     chat_id=chat_id, message_id=mid, reply_markup=None
                 )
-                updated = True
             except Exception:
-                pass
-        if not updated:
-            log.debug(
-                "admin order ui update failed order=%s chat=%s mid=%s",
-                order_id,
-                chat_id,
-                mid,
-            )
+                log.debug(
+                    "admin order ui strip failed order=%s chat=%s mid=%s",
+                    order_id,
+                    chat_id,
+                    mid,
+                )
+
+
+# Backward-compatible alias used by older call sites
+async def _update_tracked_admin_order_ui(order_id: int, text: str) -> None:
+    await cleanup_tracked_admin_order_ui(order_id, summary=text)
 
 
 async def approve_customer_order(
