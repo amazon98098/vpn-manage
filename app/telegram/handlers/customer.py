@@ -696,21 +696,33 @@ async def hide_main_menu(message: Message) -> None:
 @router.callback_query(F.data == "cust:channel:check")
 async def cust_channel_check(callback: CallbackQuery) -> None:
     from app.telegram.channel_gate import (
+        check_channel_membership,
         get_required_channel,
         join_channel_keyboard,
-        user_is_channel_member,
     )
 
     uid = callback.from_user.id if callback.from_user else 0
     channel = get_required_channel()
     bot = callback.bot
-    ok = await user_is_channel_member(bot, uid, channel) if bot else False
-    if not ok:
+    result = (
+        await check_channel_membership(bot, uid, channel) if bot else "check_failed"
+    )
+    if result == "not_member":
         await callback.answer("هنوز عضو کانال نیستید", show_alert=True)
         await callback.message.answer(
             "لطفاً اول عضو کانال شوید، بعد دوباره امتحان کنید.",
             reply_markup=join_channel_keyboard(channel),
         )
+        return
+    if result == "check_failed":
+        # Bot is not a channel admin — do not lock the customer out.
+        await callback.answer("ادامه می‌دهید", show_alert=False)
+        await callback.message.answer(
+            "منوی مشتری فعال شد.\n"
+            "(بررسی عضویت موقتاً در دسترس نیست.)",
+            reply_markup=customer_menu(),
+        )
+        await _show_customer_home(callback.message, edit=False)
         return
     await callback.answer("عضویت تایید شد ✅")
     await callback.message.answer(

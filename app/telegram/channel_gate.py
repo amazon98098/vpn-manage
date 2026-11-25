@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Awaitable, Callable
+import time
+from typing import Any, Awaitable, Callable, Literal
 
 from aiogram import BaseMiddleware, Bot
 from aiogram.enums import ChatMemberStatus
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -20,6 +22,12 @@ from app.database.database import get_session
 log = logging.getLogger(__name__)
 
 DEFAULT_REQUIRED_CHANNEL = "fxonevpn"
+
+# Avoid spamming logs / admins when the bot is not a channel admin.
+_last_misconfig_log_at = 0.0
+_MISCONFIG_LOG_EVERY_SEC = 300.0
+
+MembershipResult = Literal["member", "not_member", "check_failed"]
 
 
 def get_required_channel() -> str:
@@ -50,19 +58,67 @@ def set_channel_gate_enabled(enabled: bool) -> bool:
     return bool(enabled)
 
 
-async def user_is_channel_member(bot: Bot, user_id: int, channel: str) -> bool:
+def _note_misconfig(channel: str, detail: str) -> None:
+    global _last_misconfig_log_at
+    now = time.monotonic()
+    if now - _last_misconfig_log_at < _MISCONFIG_LOG_EVERY_SEC:
+        return
+    _last_misconfig_log_at = now
+    log.warning(
+        "Channel gate misconfigured for @%s (%s). "
+        "Add the customer bot as a channel admin so membership can be checked. "
+        "Failing open until fixed.",
+        channel,
+        detail,
+    )
+
+
+async def check_channel_membership(
+    bot: Bot, user_id: int, channel: str
+) -> MembershipResult:
+    """Return member / not_member / check_failed (bot cannot read members)."""
+    chat = f"@{channel}"
     try:
-        member = await bot.get_chat_member(f"@{channel}", user_id)
+        member = await bot.get_chat_member(chat, user_id)
+    except TelegramBadRequest as exc:
+        msg = (getattr(exc, "message", None) or str(exc)).lower()
+        if (
+            "member list is inaccessible" in msg
+            or "chat not found" in msg
+            or "chat_admin_required" in msg
+            or "not enough rights" in msg
+        ):
+            _note_misconfig(channel, msg)
+            return "check_failed"
+        log.warning(
+            "channel membership bad request channel=%s user=%s: %s",
+            channel,
+            user_id,
+            exc,
+        )
+        return "not_member"
+    except TelegramForbiddenError as exc:
+        _note_misconfig(channel, str(exc))
+        return "check_failed"
     except Exception:
-        log.exception("channel membership check failed channel=%s user=%s", channel, user_id)
-        # Fail open only if bot cannot see the channel (misconfig); otherwise block.
-        return False
-    return member.status in {
+        log.exception(
+            "channel membership check failed channel=%s user=%s", channel, user_id
+        )
+        # Unknown failure — fail open so a Telegram glitch does not lock everyone out.
+        return "check_failed"
+
+    if member.status in {
         ChatMemberStatus.MEMBER,
         ChatMemberStatus.ADMINISTRATOR,
         ChatMemberStatus.CREATOR,
         ChatMemberStatus.RESTRICTED,
-    }
+    }:
+        return "member"
+    return "not_member"
+
+
+async def user_is_channel_member(bot: Bot, user_id: int, channel: str) -> bool:
+    return await check_channel_membership(bot, user_id, channel) == "member"
 
 
 def join_channel_keyboard(channel: str) -> InlineKeyboardMarkup:
@@ -107,12 +163,20 @@ class ChannelMembershipMiddleware(BaseMiddleware):
         if user is None or user.is_bot:
             return await handler(event, data)
 
+        # Panel/admins always bypass the customer channel gate.
+        settings = data.get("settings")
+        admin_ids = getattr(settings, "admin_ids", None) if settings else None
+        if admin_ids and user.id in admin_ids:
+            return await handler(event, data)
+
         bot: Bot | None = data.get("bot")
         if bot is None:
             return await handler(event, data)
 
         channel = get_required_channel()
-        if await user_is_channel_member(bot, user.id, channel):
+        result = await check_channel_membership(bot, user.id, channel)
+        if result in {"member", "check_failed"}:
+            # check_failed = bot is not channel admin / cannot read members → fail open.
             return await handler(event, data)
 
         text = (
