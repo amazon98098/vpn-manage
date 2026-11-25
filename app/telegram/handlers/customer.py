@@ -296,12 +296,9 @@ def _can_take_payment(settings: Settings, *, username: str | None = None) -> boo
 
 
 def _valid_username(name: str) -> str | None:
-    u = (name or "").strip()
-    if not re.fullmatch(r"[A-Za-z0-9_]{3,32}", u):
-        return None
-    if u.startswith("_") or u.endswith("_"):
-        return None
-    return u
+    from app.utils.text import sanitize_service_username
+
+    return sanitize_service_username(name)
 
 
 def _scrub_vendor_branding(text: str) -> str:

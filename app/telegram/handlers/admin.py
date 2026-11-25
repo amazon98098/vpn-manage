@@ -4290,12 +4290,23 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
         return
 
     if flow == "create_wait_username":
+        from app.utils.text import sanitize_service_username
+
+        cleaned = sanitize_service_username(query)
+        if not cleaned:
+            await message.answer(
+                "❌ نام کاربری نامعتبر است.\n"
+                "فقط حروف انگلیسی، عدد و _ (۳ تا ۳۲ کاراکتر؛ "
+                "شروع/پایان با _ نباشد).\n"
+                "دوباره بفرستید:"
+            )
+            return
         with get_session() as session:
-            repo.set_state(session, f"admin_create_user:{uid}", query)
+            repo.set_state(session, f"admin_create_user:{uid}", cleaned)
             repo.set_state(session, f"admin_create_owner:{uid}", "")
             repo.set_state(session, f"admin_flow:{uid}", "create_wait_owner")
         await message.answer(
-            f"خرید برای <code>{query}</code>\n\n"
+            f"خرید برای <code>{cleaned}</code>\n\n"
             "شناسه تلگرام مالک مشتری را بفرستید "
             "(برای ارسال لینک/QR بعد از ساخت).\n"
             "اگر مالک ندارید، <code>-</code> بفرستید.",

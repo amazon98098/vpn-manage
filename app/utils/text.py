@@ -15,6 +15,36 @@ def normalize(text: str | None) -> str:
     return text.translate(_DIGITS).translate(_LETTERS)
 
 
+def sanitize_service_username(name: str | None) -> str | None:
+    """Strip invisible RTL/LTR marks and validate VPN service usernames.
+
+    Returns cleaned username or None if invalid.
+    Rules: 3–32 chars, [A-Za-z0-9_], no leading/trailing underscore.
+    """
+    raw = normalize(name).strip().lstrip("@")
+    # Extra invisible / bidi controls sometimes pasted from Telegram UI.
+    for ch in (
+        "\u200e",
+        "\u200f",
+        "\u200b",
+        "\u200c",
+        "\u200d",
+        "\ufeff",
+        "\u202a",
+        "\u202b",
+        "\u202c",
+        "\u202d",
+        "\u202e",
+    ):
+        raw = raw.replace(ch, "")
+    raw = raw.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_]{3,32}", raw):
+        return None
+    if raw.startswith("_") or raw.endswith("_"):
+        return None
+    return raw
+
+
 def to_number(value: str | None) -> float | None:
     if value is None:
         return None

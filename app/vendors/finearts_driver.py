@@ -512,11 +512,15 @@ class FineArtsRenewDriver:
             return DriveResult(
                 False, "bad_package", error="FAIL_FA_PACKAGE_NEED_50_OR_100"
             )
-        uname = (username or "").strip()
-        if not uname or not re.fullmatch(r"[A-Za-z0-9_]+", uname) or uname.startswith(
-            "_"
-        ) or uname.endswith("_"):
-            return DriveResult(False, "bad_username", error="FAIL_FA_USERNAME")
+        from app.utils.text import sanitize_service_username
+
+        uname = sanitize_service_username(username) or ""
+        if not uname:
+            return DriveResult(
+                False,
+                "bad_username",
+                error="FAIL_FA_USERNAME (حروف انگلیسی/عدد/_ ؛ بدون علامت مخفی)",
+            )
 
         async with self.lock:
             try:

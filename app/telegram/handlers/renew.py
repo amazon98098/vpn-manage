@@ -349,6 +349,16 @@ async def _enqueue(
     vendor_id: int | None = None,
     owner_tg: str | None = None,
 ) -> None:
+    from app.utils.text import sanitize_service_username
+
+    cleaned = sanitize_service_username(username)
+    if not cleaned:
+        await callback.answer(
+            "نام کاربری نامعتبر است (حروف انگلیسی/عدد/_)",
+            show_alert=True,
+        )
+        return
+    username = cleaned
     with get_session() as session:
         sub = repo.get_subscription_by_username(session, username)
         active = [j for j in repo.list_active_renew_jobs(session) if j.username == username]
