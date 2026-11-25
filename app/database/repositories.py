@@ -997,6 +997,75 @@ def pop_admin_order_ui_messages(
     return out
 
 
+def track_renew_pay_admin_message(
+    session: Session, job_id: int, chat_id: int, message_id: int
+) -> None:
+    """Remember admin payment (card/amount) messages for a renew/create job."""
+    key = f"renew_pay_ui:{int(job_id)}"
+    raw = (get_state(session, key) or "").strip()
+    rows: list[list[int]] = []
+    if raw:
+        try:
+            data = json.loads(raw)
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, (list, tuple)) and len(item) >= 2:
+                        rows.append([int(item[0]), int(item[1])])
+        except (json.JSONDecodeError, TypeError, ValueError):
+            rows = []
+    pair = [int(chat_id), int(message_id)]
+    rows = [r for r in rows if not (r[0] == pair[0] and r[1] == pair[1])]
+    rows.append(pair)
+    set_state(session, key, json.dumps(rows[-40:]))
+
+
+def get_renew_pay_admin_messages(
+    session: Session, job_id: int
+) -> list[tuple[int, int]]:
+    key = f"renew_pay_ui:{int(job_id)}"
+    raw = (get_state(session, key) or "").strip()
+    if not raw:
+        return []
+    out: list[tuple[int, int]] = []
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    out.append((int(item[0]), int(item[1])))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return []
+    return out
+
+
+def set_renew_pay_admin_messages(
+    session: Session, job_id: int, rows: list[tuple[int, int]]
+) -> None:
+    key = f"renew_pay_ui:{int(job_id)}"
+    payload = [[int(a), int(b)] for a, b in rows][-40:]
+    set_state(session, key, json.dumps(payload) if payload else "")
+
+
+def pop_renew_pay_admin_messages(
+    session: Session, job_id: int
+) -> list[tuple[int, int]]:
+    key = f"renew_pay_ui:{int(job_id)}"
+    raw = (get_state(session, key) or "").strip()
+    set_state(session, key, "")
+    if not raw:
+        return []
+    out: list[tuple[int, int]] = []
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    out.append((int(item[0]), int(item[1])))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return []
+    return out
+
+
 def get_state(session: Session, key: str, default: str = "") -> str:
     row = session.get(AppState, key)
     return row.value if row else default

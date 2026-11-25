@@ -219,6 +219,44 @@ class RenewQueue:
             except Exception:
                 log.exception("renew queue wake failed")
 
+    def _load_pay_admin_msgs(self, job_id: int) -> list[tuple[int, int]]:
+        mem = self._pay_admin_msgs.get(job_id) or []
+        with get_session() as session:
+            db = repo.get_renew_pay_admin_messages(session, job_id)
+        # Merge memory + DB (DB survives restarts).
+        seen: set[tuple[int, int]] = set()
+        out: list[tuple[int, int]] = []
+        for pair in list(mem) + list(db):
+            key = (int(pair[0]), int(pair[1]))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(key)
+        return out
+
+    def _save_pay_admin_msgs(self, job_id: int, rows: list[tuple[int, int]]) -> None:
+        cleaned = [(int(a), int(b)) for a, b in rows]
+        if cleaned:
+            self._pay_admin_msgs[job_id] = cleaned
+        else:
+            self._pay_admin_msgs.pop(job_id, None)
+        with get_session() as session:
+            repo.set_renew_pay_admin_messages(session, job_id, cleaned)
+
+    def _pop_pay_admin_msgs(self, job_id: int) -> list[tuple[int, int]]:
+        mem = self._pay_admin_msgs.pop(job_id, [])
+        with get_session() as session:
+            db = repo.pop_renew_pay_admin_messages(session, job_id)
+        seen: set[tuple[int, int]] = set()
+        out: list[tuple[int, int]] = []
+        for pair in list(mem) + list(db):
+            key = (int(pair[0]), int(pair[1]))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(key)
+        return out
+
     async def _notify_payment(
         self, job_id: int, text: str, markup: InlineKeyboardMarkup | None
     ) -> None:
@@ -227,7 +265,7 @@ class RenewQueue:
         if bot is None:
             await self.notify(text, markup)
             return
-        tracked = self._pay_admin_msgs.get(job_id) or []
+        tracked = self._load_pay_admin_msgs(job_id)
         if tracked:
             refreshed: list[tuple[int, int]] = []
             for chat_id, mid in tracked:
@@ -251,7 +289,7 @@ class RenewQueue:
                             "Could not upsert payment UI for admin %s", chat_id
                         )
             if refreshed:
-                self._pay_admin_msgs[job_id] = refreshed
+                self._save_pay_admin_msgs(job_id, refreshed)
             return
         new_tracked: list[tuple[int, int]] = []
         for admin_id in self.settings.admin_ids:
@@ -261,7 +299,7 @@ class RenewQueue:
             except Exception:
                 log.exception("Could not notify admin %s (payment)", admin_id)
         if new_tracked:
-            self._pay_admin_msgs[job_id] = new_tracked
+            self._save_pay_admin_msgs(job_id, new_tracked)
 
     async def _replace_payment_ui(
         self,
@@ -269,25 +307,26 @@ class RenewQueue:
         text: str,
         markup: InlineKeyboardMarkup | None,
     ) -> None:
-        """Edit prior payment messages (drop card details) or send a fresh notice."""
+        """Delete card/amount payment chats, then send the final success/status notice."""
         bot = customer_bridge.admin_bot
-        tracked = self._pay_admin_msgs.pop(job_id, [])
+        tracked = self._pop_pay_admin_msgs(job_id)
         if bot and tracked:
             for chat_id, mid in tracked:
                 try:
-                    await bot.edit_message_text(
-                        text, chat_id=chat_id, message_id=mid, reply_markup=markup
-                    )
+                    await bot.delete_message(chat_id, mid)
                 except Exception:
+                    # If delete fails (too old / already gone), strip buttons at least.
                     try:
-                        await bot.send_message(chat_id, text, reply_markup=markup)
-                        try:
-                            await bot.delete_message(chat_id, mid)
-                        except Exception:
-                            pass
+                        await bot.edit_message_reply_markup(
+                            chat_id=chat_id, message_id=mid, reply_markup=None
+                        )
                     except Exception:
-                        log.exception("Could not replace payment UI for admin %s", chat_id)
-            return
+                        log.debug(
+                            "Could not delete/strip payment UI chat=%s mid=%s",
+                            chat_id,
+                            mid,
+                        )
+        # Always send a fresh final notice (never reuse the payment card message).
         await self.notify(text, markup)
 
     async def _upsert_job_notice(
