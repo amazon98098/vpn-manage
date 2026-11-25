@@ -727,7 +727,20 @@ class RenewQueue:
             if job is None:
                 return
             job_id = job.id
-            uname = job.username
+            # Prefer vendor-reported username (FineArts may append _digits on create).
+            vendor_uname = (username or "").strip().lstrip("\u200e").lstrip("\u200f")
+            job_uname = (job.username or "").strip().lstrip("\u200e").lstrip("\u200f")
+            if (
+                vendor_uname
+                and job_uname
+                and vendor_uname != job_uname
+                and vendor_uname.startswith(job_uname + "_")
+            ):
+                job.username = vendor_uname
+                repo.touch_renew_job(job)
+                uname = vendor_uname
+            else:
+                uname = vendor_uname or job_uname
             amt = job.amount_rial
             job_kind = job.kind or "renew"
             job_vendor_id = job.vendor_id
@@ -812,6 +825,15 @@ class RenewQueue:
 
             payload = dict(parsed or {})
             payload.setdefault("kind", "create_ok" if job_kind == "create" else "renew_ok")
+            # Keep vendor username from the success message when present.
+            actual = (payload.get("username") or "").strip().lstrip("\u200e").lstrip(
+                "\u200f"
+            )
+            if actual:
+                uname = actual
+                if job and (job.username or "") != actual:
+                    job.username = actual
+                    repo.touch_renew_job(job)
             payload["username"] = uname
             # Prefer structured URL from parser; else scrape status_text / raw.
             url_from_parsed = (payload.get("subscription_url") or "").strip()

@@ -3674,33 +3674,69 @@ def match_pending_renew_by_amount(session: Session, amount_rial: str | int | Non
     )
 
 
+_PENDING_RENEW_STATUSES = (
+    "awaiting_payment",
+    "awaiting_auto_approve",
+    "receipt_window",
+    "awaiting_receipt_confirm",
+    "driving",
+)
+
+
 def match_pending_renew_by_username(session: Session, username: str | None) -> RenewJob | None:
-    if not username:
+    """Match open renew/create job by vendor username.
+
+    FineArts create often returns ``requested_digits`` (e.g. roodaki_mom_9021682)
+    while the queue job still holds the requested base name (roodaki_mom).
+    """
+    want = (username or "").strip().lstrip("\u200e").lstrip("\u200f")
+    if not want:
         return None
     job = session.scalar(
         select(RenewJob)
         .where(
-            RenewJob.username == username,
-            RenewJob.status.in_(
-                (
-                    "awaiting_payment",
-                    "awaiting_auto_approve",
-                    "receipt_window",
-                    "awaiting_receipt_confirm",
-                    "driving",
-                )
-            ),
+            RenewJob.username == want,
+            RenewJob.status.in_(_PENDING_RENEW_STATUSES),
         )
         .order_by(RenewJob.id.desc())
         .limit(1)
     )
     if job:
         return job
+
+    # Prefix match for FineArts-style create suffix (_NNNNNNN).
+    candidates = list(
+        session.scalars(
+            select(RenewJob)
+            .where(
+                RenewJob.status.in_(_PENDING_RENEW_STATUSES),
+                RenewJob.kind == "create",
+            )
+            .order_by(RenewJob.id.desc())
+            .limit(40)
+        )
+    )
+    best: RenewJob | None = None
+    best_len = -1
+    for cand in candidates:
+        base = (cand.username or "").strip().lstrip("\u200e").lstrip("\u200f")
+        if not base or len(base) < 3:
+            continue
+        if want == base:
+            return cand
+        if want.startswith(base + "_"):
+            suffix = want[len(base) + 1 :]
+            if suffix.isdigit() and len(base) > best_len:
+                best = cand
+                best_len = len(base)
+    if best is not None:
+        return best
+
     # Late renew_ok after drive mistook operator-wallet settle for empty_message.
     recent_fail = session.scalar(
         select(RenewJob)
         .where(
-            RenewJob.username == username,
+            RenewJob.username == want,
             RenewJob.status == "failed",
             RenewJob.kind.in_(("renew", "create")),
         )
