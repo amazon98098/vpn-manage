@@ -523,10 +523,36 @@ class RenewQueue:
         kind: str,
     ) -> None:
         vendor_id = None
+        vendor_key = None
         with get_session() as session:
             job_row = repo.get_renew_job(session, job_id)
             if job_row:
-                vendor_id = job_row.vendor_id
+                # Re-resolve from subscription so a stale/wrong job.vendor_id cannot
+                # send NetPlus renews to FineArts (or reverse).
+                vendor_id = repo.resolve_vendor_id_for_job(
+                    session,
+                    username=username,
+                    subscription_id=job_row.subscription_id,
+                    vendor_id=job_row.vendor_id,
+                )
+                if vendor_id and vendor_id != job_row.vendor_id:
+                    job_row.vendor_id = vendor_id
+                    repo.touch_renew_job(job_row)
+                vendor = repo.get_vendor(session, vendor_id) if vendor_id else None
+                vendor_key = (vendor.key or "").lower() if vendor else None
+                # Drop FineArts-only package tokens on NetPlus jobs (and reverse).
+                if package_callback and vendor_key != "finearts":
+                    if str(package_callback).startswith("fa_") or "facb" in str(
+                        package_callback
+                    ).lower():
+                        package_callback = None
+                        job_row.package_callback = None
+                        repo.touch_renew_job(job_row)
+                if package_callback and vendor_key == "finearts":
+                    if str(package_callback).startswith("product"):
+                        package_callback = None
+                        job_row.package_callback = None
+                        repo.touch_renew_job(job_row)
         driver = self._driver_for_vendor_id(vendor_id)
 
         if kind == "create":

@@ -1392,6 +1392,14 @@ async def _execute_shop_pay(
             if not plan:
                 await callback.answer("پلن نامعتبر", show_alert=True)
                 return
+            if kind == "renew" and not repo.plan_matches_service_vendor(
+                session, plan, username=username
+            ):
+                await callback.answer(
+                    "این پلن با فروشنده سرویس یکی نیست؛ تمدید لغو شد.",
+                    show_alert=True,
+                )
+                return
             if kind == "create":
                 ok, _reason = repo.is_username_available_for_create(
                     session, username, uid
@@ -2426,20 +2434,22 @@ async def svc_transfer(callback: CallbackQuery) -> None:
 
 
 def _renew_family_for_username(username: str) -> str:
-    """economy|volume for an existing service (FineArts / نامحدود = volume)."""
+    """economy|volume for an existing service — vendor_id wins over product text."""
     with get_session() as session:
         sub = repo.get_subscription_by_username(session, username)
         if not sub:
             return "economy"
-        name = (sub.product_name or "").strip()
-        if "نامحدود" in name:
+        vkey = repo.vendor_key_for_subscription(session, sub, username=username)
+        if vkey == "finearts":
             return "volume"
-        vendor = (
-            repo.get_vendor(session, sub.vendor_id) if sub.vendor_id else None
-        )
-        if vendor and (vendor.key or "").lower() == "finearts":
-            return "volume"
+        # NetPlus (and unknown): never treat as FineArts volume from name alone.
         return "economy"
+
+
+def _plans_for_service_vendor(session, username: str, plans: list) -> list:
+    """Keep only sell plans that belong to this service's real vendor."""
+    vkey = repo.vendor_key_for_subscription(session, None, username=username)
+    return [p for p in plans if repo.vendor_key_for_price_plan(p) == vkey]
 
 
 async def _show_renew_choices(
@@ -2448,7 +2458,9 @@ async def _show_renew_choices(
     u = username[:40]
     family = _renew_family_for_username(username)
     with get_session() as session:
-        plans = repo.list_price_plans(session, enabled_only=True)
+        plans = _plans_for_service_vendor(
+            session, username, repo.list_price_plans(session, enabled_only=True)
+        )
         has_current = repo.find_renew_plan_for_username(session, username) is not None
         has_economy = any(
             int(p.duration_days) > 0
@@ -2543,15 +2555,17 @@ async def _show_renew_volumes(
     raw_days = draft.get("duration_days")
     days = int(raw_days) if raw_days is not None else 31
     panel = str(draft.get("panel") or "economy")
+    username = str(draft.get("username") or "")
     uid = message.from_user.id if message.from_user else 0
     rows: list[list[InlineKeyboardButton]] = []
     icon = ICON_VOLUME if days == 0 else ICON_ECONOMY
     with get_session() as session:
+        catalog = _plans_for_service_vendor(
+            session, username, repo.list_price_plans(session, enabled_only=True)
+        ) if username else repo.list_price_plans(session, enabled_only=True)
         plans = [
             p
-            for p in _plans_for_panel(
-                repo.list_price_plans(session, enabled_only=True), panel
-            )
+            for p in _plans_for_panel(catalog, panel)
             if int(p.duration_days) == days
         ]
         for plan in plans:
@@ -2615,12 +2629,17 @@ async def renew_current(callback: CallbackQuery, settings: Settings) -> None:
         return
     with get_session() as session:
         plan = repo.find_renew_plan_for_username(session, username)
+        if plan and not repo.plan_matches_service_vendor(
+            session, plan, username=username
+        ):
+            plan = None
     if not plan:
         await callback.answer("پلنی برای تمدید فعلی نیست", show_alert=True)
         return
+    family = _renew_family_for_username(username)
     draft = {
         "step": "invoice",
-        "panel": "economy",
+        "panel": family,
         "duration_days": plan.duration_days,
         "plan_id": plan.id,
         "username": username,
@@ -2686,7 +2705,12 @@ async def renew_panel(callback: CallbackQuery) -> None:
         _set_draft(uid, draft)
         with get_session() as session:
             plans = _plans_for_panel(
-                repo.list_price_plans(session, enabled_only=True), panel
+                _plans_for_service_vendor(
+                    session,
+                    username,
+                    repo.list_price_plans(session, enabled_only=True),
+                ),
+                panel,
             )
             days_list = sorted(
                 {
@@ -2762,6 +2786,12 @@ async def renew_volume(callback: CallbackQuery) -> None:
         plan = repo.get_price_plan(session, plan_id)
         if not plan or not plan.enabled:
             await callback.answer("پلن نامعتبر", show_alert=True)
+            return
+        if not repo.plan_matches_service_vendor(session, plan, username=username):
+            await callback.answer(
+                "این پلن مال فروشنده دیگری است و برای این سرویس قابل تمدید نیست.",
+                show_alert=True,
+            )
             return
         raw_wanted = draft.get("duration_days")
         wanted_days = (

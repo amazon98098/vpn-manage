@@ -180,13 +180,20 @@ def resolve_vendor_id_for_job(
     subscription_id: int | None = None,
     vendor_id: int | None = None,
 ) -> int | None:
-    """Pick vendor_id for a renew/create job (subscription → username → default)."""
-    if vendor_id is not None:
-        return vendor_id
+    """Pick vendor_id for a renew/create job.
+
+    Existing subscription vendor always wins (never let a FineArts plan
+    override a NetPlus service, or the reverse).
+    """
     if subscription_id is not None:
         sub = session.get(Subscription, subscription_id)
         if sub and sub.vendor_id:
             return sub.vendor_id
+    by_name = get_subscription_by_username(session, username)
+    if by_name and by_name.vendor_id:
+        return by_name.vendor_id
+    if vendor_id is not None:
+        return vendor_id
     vendor = resolve_vendor_for_username(session, username)
     return vendor.id if vendor else None
 
@@ -1144,6 +1151,41 @@ def vendor_key_for_price_plan(plan: PricePlan | None) -> str:
     return DEFAULT_VENDOR_KEY
 
 
+def vendor_key_for_subscription(
+    session: Session, sub: Subscription | None, *, username: str | None = None
+) -> str:
+    """Authoritative vendor for an existing service (never infer from plan GB alone)."""
+    if sub is None and username:
+        sub = get_subscription_by_username(session, username)
+    if sub is not None and sub.vendor_id:
+        vendor = get_vendor(session, sub.vendor_id)
+        if vendor and (vendor.key or "").strip():
+            return (vendor.key or "").strip().lower()
+    if username or (sub and sub.username):
+        resolved = resolve_vendor_for_username(
+            session, username or (sub.username if sub else "")
+        )
+        if resolved and (resolved.key or "").strip():
+            return (resolved.key or "").strip().lower()
+    return DEFAULT_VENDOR_KEY
+
+
+def plan_matches_service_vendor(
+    session: Session,
+    plan: PricePlan | None,
+    *,
+    username: str | None = None,
+    subscription: Subscription | None = None,
+) -> bool:
+    """True when sell-plan vendor equals the subscription's real vendor."""
+    if plan is None:
+        return False
+    service_key = vendor_key_for_subscription(
+        session, subscription, username=username
+    )
+    return vendor_key_for_price_plan(plan) == service_key
+
+
 def finearts_package_callback_for_plan(plan: PricePlan | None) -> str | None:
     """Map sell plan → FineArts driver package token (50/100 GB volume)."""
     if plan is None:
@@ -2054,10 +2096,17 @@ def set_wallet_limits(session: Session, minimum: int, maximum: int) -> tuple[int
 
 
 def find_plan_by_traffic_gb(
-    session: Session, traffic_gb: float, *, duration_days: int = 31
+    session: Session,
+    traffic_gb: float,
+    *,
+    duration_days: int = 31,
+    vendor_key: str | None = None,
 ) -> PricePlan | None:
     plans = list_price_plans(session, enabled_only=True)
+    want_vendor = (vendor_key or "").strip().lower() or None
     for p in plans:
+        if want_vendor and vendor_key_for_price_plan(p) != want_vendor:
+            continue
         if p.duration_days == duration_days and p.traffic_gb is not None:
             if abs(float(p.traffic_gb) - float(traffic_gb)) < 0.1:
                 return p
@@ -2067,20 +2116,32 @@ def find_plan_by_traffic_gb(
 def find_renew_plan_for_username(
     session: Session, username: str
 ) -> PricePlan | None:
-    """Match enabled sell plan for renew-current.
+    """Match enabled sell plan for renew-current on the SAME vendor only.
 
     Prefer product_name (e.g. ۲۵ گیگ) over cumulative traffic_limit_mb, which can
     stack across renewals and falsely look like a larger plan.
+
+    Critical: never match NetPlus 100GB monthly to FineArts fa_100gb (or reverse).
     """
     sub = get_subscription_by_username(session, username)
-    plans = list_price_plans(session, enabled_only=True)
+    service_vendor = vendor_key_for_subscription(session, sub, username=username)
+    plans = [
+        p
+        for p in list_price_plans(session, enabled_only=True)
+        if vendor_key_for_price_plan(p) == service_vendor
+    ]
     if not plans:
         return None
+
+    # FineArts volume → duration 0 first; NetPlus economy → monthly first.
+    if service_vendor == "finearts":
+        day_order = (0, 31, 30, 61, 62, 91, 92)
+    else:
+        day_order = (31, 30, 61, 62, 91, 92, 0)
 
     # 1) Product title / key hints (most accurate for "current plan")
     if sub and (sub.product_name or "").strip():
         pname = (sub.product_name or "").replace(" ", "").replace("‌", "")
-        # Extract leading number like ۲۵ / 25 / 55 / 100
         digits = ""
         for ch in pname:
             if ch.isdigit() or ch in "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩":
@@ -2092,25 +2153,27 @@ def find_renew_plan_for_username(
 
             gb_hint = to_number(digits)
             if gb_hint is not None:
-                # 0 = time-unlimited volume; 31/30 = monthly economy
-                for days in (0, 31, 30):
+                for days in day_order:
                     hit = find_plan_by_traffic_gb(
-                        session, float(gb_hint), duration_days=days
+                        session,
+                        float(gb_hint),
+                        duration_days=days,
+                        vendor_key=service_vendor,
                     )
                     if hit:
                         return hit
-        # Fallback: title substring match
         for p in plans:
-            if p.title and p.title.replace(" ", "") in pname:
-                return p
-            if p.title and pname in p.title.replace(" ", ""):
+            title = (p.title or "").replace(" ", "").replace("‌", "")
+            if title and (title in pname or pname in title):
                 return p
 
     # 2) Only if product unknown: closest to traffic_limit (may be cumulative)
     if sub and sub.traffic_limit_mb:
         gb = float(sub.traffic_limit_mb) / 1024.0
-        for days in (0, 31, 30):
-            hit = find_plan_by_traffic_gb(session, gb, duration_days=days)
+        for days in day_order:
+            hit = find_plan_by_traffic_gb(
+                session, gb, duration_days=days, vendor_key=service_vendor
+            )
             if hit:
                 return hit
         best = None
@@ -2124,7 +2187,7 @@ def find_renew_plan_for_username(
                 best_diff = diff
         if best:
             return best
-    return next((p for p in plans if p.duration_days <= 31), plans[0])
+    return next((p for p in plans if int(p.duration_days or 0) > 0), plans[0])
 
 
 def list_enabled_duration_days(session: Session) -> list[int]:
@@ -3455,6 +3518,11 @@ def set_subscription_product_from_plan(
         return None
     if plan is None and plan_id is not None:
         plan = get_price_plan(session, plan_id)
+    # Never overwrite a NetPlus product with FineArts (or reverse) from a bad plan match.
+    if plan is not None and not plan_matches_service_vendor(
+        session, plan, username=username or sub.username, subscription=sub
+    ):
+        return sub
     label = local_product_name_from_plan(plan)
     if label:
         sub.product_name = label

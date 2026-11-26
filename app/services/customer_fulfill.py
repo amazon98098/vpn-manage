@@ -71,23 +71,58 @@ async def enqueue_fulfillment(order_id: int, *, requested_by: int | None = None)
 
         repo.link_customer_service(session, tg, uname)
         sub = repo.get_subscription_by_username(session, uname)
-        if order.plan_id:
-            repo.set_subscription_product_from_plan(
-                session, username=uname, subscription=sub, plan_id=order.plan_id
-            )
-
         plan = repo.get_price_plan(session, order.plan_id) if order.plan_id else None
         plan_vendor_key = repo.vendor_key_for_price_plan(plan)
-        vendor_id = sub.vendor_id if sub else None
-        if vendor_id is None:
-            vrow = repo.get_vendor_by_key(session, plan_vendor_key) or repo.get_vendor_by_key(
+
+        # Renew (and any existing sub): vendor comes from the subscription — never the plan.
+        # Create without sub: vendor comes from the chosen sell plan.
+        if kind == "renew" or sub is not None:
+            service_vendor_key = repo.vendor_key_for_subscription(
+                session, sub, username=uname
+            )
+            if plan is not None and plan_vendor_key != service_vendor_key:
+                log.error(
+                    "fulfill refused plan/vendor mismatch order=%s user=%s plan=%s service=%s",
+                    order_id,
+                    uname,
+                    plan_vendor_key,
+                    service_vendor_key,
+                )
+                return {
+                    "ok": False,
+                    "error": "plan_vendor_mismatch",
+                    "plan_vendor": plan_vendor_key,
+                    "service_vendor": service_vendor_key,
+                }
+            vendor_key = service_vendor_key
+            vendor_id = sub.vendor_id if sub and sub.vendor_id else None
+            if vendor_id is None:
+                vrow = repo.get_vendor_by_key(session, vendor_key)
+                vendor_id = vrow.id if vrow else None
+        else:
+            vendor_key = plan_vendor_key
+            vendor_id = None
+            vrow = repo.get_vendor_by_key(session, vendor_key) or repo.get_vendor_by_key(
                 session, repo.DEFAULT_VENDOR_KEY
             )
             vendor_id = vrow.id if vrow else None
 
+        if order.plan_id and (
+            kind == "create" or repo.plan_matches_service_vendor(
+                session, plan, username=uname, subscription=sub
+            )
+        ):
+            repo.set_subscription_product_from_plan(
+                session, username=uname, subscription=sub, plan_id=order.plan_id
+            )
+
         sell_plan_id = int(order.plan_id) if order.plan_id else None
+        fa_pkg = (
+            repo.finearts_package_callback_for_plan(plan)
+            if vendor_key == "finearts"
+            else None
+        )
         if kind == "create":
-            fa_pkg = repo.finearts_package_callback_for_plan(plan)
             job = repo.create_renew_job(
                 session,
                 username=uname,
@@ -97,7 +132,7 @@ async def enqueue_fulfillment(order_id: int, *, requested_by: int | None = None)
                 requested_by=requested_by or tg,
                 duration_callback=(
                     None
-                    if plan_vendor_key == "finearts"
+                    if vendor_key == "finearts"
                     else _duration_callback_for_days(days)
                 ),
                 package_callback=fa_pkg,
@@ -107,7 +142,6 @@ async def enqueue_fulfillment(order_id: int, *, requested_by: int | None = None)
             )
         else:
             renew_mode, renew_dur = repo.renew_job_args_from_order(session, order)
-            fa_pkg = repo.finearts_package_callback_for_plan(plan)
             job = repo.create_renew_job(
                 session,
                 username=uname,
@@ -115,7 +149,7 @@ async def enqueue_fulfillment(order_id: int, *, requested_by: int | None = None)
                 subscription_id=sub.id if sub else None,
                 plan_mode=renew_mode,
                 requested_by=requested_by or tg,
-                duration_callback=renew_dur,
+                duration_callback=renew_dur if vendor_key != "finearts" else None,
                 package_callback=fa_pkg,
                 kind="renew",
                 vendor_id=vendor_id,

@@ -54,7 +54,12 @@ def save_meta(session, order_id: int, data: dict) -> None:
 
 
 async def prepare_vendor_direct_payment(order_id: int) -> dict:
-    """Walk vendor wallet top-up (NetPlus / FineArts) and stamp card/amount on order."""
+    """Walk vendor wallet top-up (NetPlus / FineArts) and stamp card/amount on order.
+
+    Vendor is taken from the existing subscription for renews (and create only when
+    no sub yet). Never choose the card vendor from the sell-plan alone — that
+    wrongly sent NetPlus renews to FineArts when plan GB matched fa_*.
+    """
     with get_session() as session:
         order = repo.get_customer_order(session, order_id)
         if not order:
@@ -64,7 +69,20 @@ async def prepare_vendor_direct_payment(order_id: int) -> dict:
         amount_toman = repo.order_payable_toman(order)
         uname = order.service_username
         plan = repo.get_price_plan(session, order.plan_id) if order.plan_id else None
-        vendor_key = repo.vendor_key_for_price_plan(plan)
+        sub = repo.get_subscription_by_username(session, uname) if uname else None
+        if order.kind == "renew" or sub is not None:
+            vendor_key = repo.vendor_key_for_subscription(
+                session, sub, username=uname
+            )
+            if plan is not None and not repo.plan_matches_service_vendor(
+                session, plan, username=uname, subscription=sub
+            ):
+                return {
+                    "ok": False,
+                    "error": f"plan_vendor_mismatch:{repo.vendor_key_for_price_plan(plan)}!={vendor_key}",
+                }
+        else:
+            vendor_key = repo.vendor_key_for_price_plan(plan)
         if amount_toman <= 0:
             return {"ok": False, "error": "nothing_payable"}
     vendor_key_saved = vendor_key
@@ -256,7 +274,19 @@ async def forward_receipt_to_vendor(order_id: int, *, force: bool = False) -> di
     rq = customer_bridge.renew_queue
     if rq is None:
         return {"ok": False, "error": "queue_unavailable"}
-    vendor_key = str(meta.get("vendor_key") or "netplus")
+    # Prefer live subscription vendor over stale meta (old bug stored FineArts for NetPlus).
+    with get_session() as session:
+        order = repo.get_customer_order(session, order_id)
+        uname = order.service_username if order else meta.get("username")
+        sub = (
+            repo.get_subscription_by_username(session, uname) if uname else None
+        )
+        if order and (order.kind == "renew" or sub is not None):
+            vendor_key = repo.vendor_key_for_subscription(
+                session, sub, username=uname
+            )
+        else:
+            vendor_key = str(meta.get("vendor_key") or "netplus")
     driver = get_vendor_driver(vendor_key) or rq._driver_for_vendor_id(None)
     if driver is None:
         return {"ok": False, "error": "driver_unavailable"}
