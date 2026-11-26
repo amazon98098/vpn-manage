@@ -16,7 +16,6 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     Message,
     ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
 )
 
 from app.config import Settings
@@ -684,13 +683,28 @@ async def cmd_menu(message: Message) -> None:
 
 @router.message(F.text.func(lambda t: bool(t) and t in _cust_labels("hide_menu")))
 async def hide_main_menu(message: Message) -> None:
-    """NetPlus-style: hide the bottom reply keyboard until /menu or /start."""
+    """NetPlus-style: collapse main menu to a single expand button (keyboard stays)."""
+    from app.telegram.menu_config import collapsed_customer_menu
+
     _track(message)
     await message.answer(
-        "منوی پایین مخفی شد.\n"
-        "برای نمایش دوباره از /menu یا /start استفاده کنید.",
-        reply_markup=ReplyKeyboardRemove(),
+        "منوی اصلی جمع شد. برای باز کردن دوباره «⬆️ نمایش منو» را بزنید.",
+        reply_markup=collapsed_customer_menu(),
     )
+
+
+@router.message(F.text.func(lambda t: bool(t) and t in _cust_labels("show_menu")))
+async def show_main_menu(message: Message) -> None:
+    """Expand the collapsed reply keyboard back to the full customer menu."""
+    _track(message)
+    await message.answer("منوی اصلی باز شد.", reply_markup=customer_menu())
+
+
+@router.message(F.text.func(lambda t: bool(t) and t in _cust_labels("referral")))
+async def referral_menu_stub(message: Message) -> None:
+    """Reserved main-menu item; disabled in default layout until launched."""
+    _track(message)
+    await _wallet_home_ui(message, edit=False)
 
 
 @router.callback_query(F.data == "cust:channel:check")
@@ -709,27 +723,43 @@ async def cust_channel_check(callback: CallbackQuery) -> None:
     )
     if result == "not_member":
         await callback.answer("هنوز عضو کانال نیستید", show_alert=True)
-        await callback.message.answer(
-            "لطفاً اول عضو کانال شوید، بعد دوباره امتحان کنید.",
-            reply_markup=join_channel_keyboard(channel),
+        text = (
+            "لطفاً اول عضو کانال شوید، بعد دوباره امتحان کنید.\n"
+            f"https://t.me/{channel}"
         )
+        try:
+            await callback.message.edit_text(
+                text, reply_markup=join_channel_keyboard(channel)
+            )
+        except Exception:
+            await callback.message.answer(
+                text, reply_markup=join_channel_keyboard(channel)
+            )
         return
     if result == "check_failed":
         # Bot is not a channel admin — do not lock the customer out.
         await callback.answer("ادامه می‌دهید", show_alert=False)
+        try:
+            await callback.message.edit_text(
+                "منوی مشتری فعال شد.\n(بررسی عضویت موقتاً در دسترس نیست.)"
+            )
+        except Exception:
+            pass
         await callback.message.answer(
-            "منوی مشتری فعال شد.\n"
-            "(بررسی عضویت موقتاً در دسترس نیست.)",
+            "از منوی پایین استفاده کنید.",
             reply_markup=customer_menu(),
         )
-        await _show_customer_home(callback.message, edit=False)
         return
     await callback.answer("عضویت تایید شد ✅")
+    try:
+        await callback.message.edit_text("✅ عضویت تایید شد. از منوی پایین استفاده کنید.")
+    except Exception:
+        pass
+    # Only open the bottom reply keyboard — no extra inline home chat bubble.
     await callback.message.answer(
-        "✅ عضویت تایید شد. از منوی پایین استفاده کنید.",
+        "منوی اصلی آماده است.",
         reply_markup=customer_menu(),
     )
-    await _show_customer_home(callback.message, edit=False)
 
 
 @router.message(Command("help"))
@@ -839,10 +869,13 @@ async def _show_education_menu(
             ]
         )
     for lesson in lessons:
+        title = lesson.title or "آموزش"
+        # Titles may already include emoji (install/update); avoid double icons.
+        prefix = "" if title[:1] in {"📲", "🔄", "📄", "📚"} else "📄 "
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"📄 {lesson.title}",
+                    text=f"{prefix}{title}",
                     callback_data=f"cust:edu:lesson:{lesson.id}",
                 )
             ]
@@ -1899,15 +1932,15 @@ def _format_service_info(sub, username: str) -> str:
     pct = ""
     try:
         if remain is not None and limit is not None and float(limit) > 0:
-            pct = f" · {int(round(100.0 * float(remain) / float(limit)))}٪"
+            pct = f" ({int(round(100.0 * float(remain) / float(limit)))}٪)"
     except (TypeError, ValueError):
         pct = ""
     return (
         f"📡 وضعیت: <b>{status_fa(sub.status)}</b>\n"
         f"{icon} نام سرویس: <b>{ltr(sub.username)}</b> {icon}\n"
         f"{icon} محصول: {product}\n\n"
-        f"✅ حجم باقی‌مانده (مانده از خریدهای قبلی): "
-        f"{format_mb(remain)}{pct}\n"
+        f"✅ حجم باقی‌مانده: {format_mb(remain)}{pct}\n"
+        f"↩️ مانده از خریدهای قبلی\n"
         f"📅 تاریخ اتمام : {expire_line}\n\n"
         "💡 برای قطع دسترسی دیگران از «🔐 تغییر لینک» استفاده کنید."
     )
@@ -2129,9 +2162,56 @@ def _load_service_for_display(username: str, *, force: bool = False):
         return sub
 
 
+async def _show_subscription_link_ui(
+    message: Message,
+    *,
+    username: str,
+    url: str,
+    back_cb: str,
+    edit: bool = True,
+    include_username: bool = False,
+) -> None:
+    """Show subscription URL + QR. Customer view omits service name."""
+    u = username[:40]
+    if include_username:
+        caption = (
+            f"🔗 <b>لینک اشتراک</b>\n"
+            f"👤 <code>{ltr(username).lstrip(chr(0x200E))}</code>\n\n"
+            f"<code>{url}</code>"
+        )
+    else:
+        caption = f"🔗 <b>لینک اشتراک</b>\n\n<code>{url}</code>"
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 کپی لینک",
+                    copy_text=CopyTextButton(text=url),
+                )
+            ],
+            [InlineKeyboardButton(text="⬅️ بازگشت", callback_data=back_cb)],
+        ]
+    )
+    if url.startswith("http"):
+        try:
+            png = subscription_qr_png(url)
+            photo = BufferedInputFile(png, filename=f"{u}_sub.png")
+            # Photo cannot replace a text message via edit — send fresh + drop old UI.
+            await message.answer_photo(photo, caption=caption, reply_markup=kb)
+            if edit:
+                try:
+                    await message.delete()
+                except Exception:
+                    pass
+            return
+        except Exception:
+            log.exception("subscription QR failed for %s", username)
+    await _ui_show(message, caption, reply_markup=kb, edit=edit)
+
+
 @router.callback_query(F.data.startswith("cust:svclink:"))
 async def svc_link(callback: CallbackQuery) -> None:
-    """Show subscription URL inline on the same service message (no extra chat msg)."""
+    """Show subscription URL + QR (no service name on customer view)."""
     uid = callback.from_user.id if callback.from_user else 0
     username = (callback.data or "").split(":", 2)[2]
     if not _owns_service(uid, username):
@@ -2147,29 +2227,14 @@ async def svc_link(callback: CallbackQuery) -> None:
         )
         return
     await callback.answer()
-    u = username[:40]
-    text = (
-        f"🔗 <b>لینک اشتراک</b>\n"
-        f"👤 <code>{ltr(username).lstrip(chr(0x200E))}</code>\n\n"
-        f"<code>{url}</code>"
+    await _show_subscription_link_ui(
+        callback.message,
+        username=username,
+        url=url,
+        back_cb=f"cust:svc:{username[:40]}",
+        edit=True,
+        include_username=False,
     )
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="📋 کپی لینک",
-                    copy_text=CopyTextButton(text=url),
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="⬅️ بازگشت به مشخصات",
-                    callback_data=f"cust:svc:{u}",
-                )
-            ],
-        ]
-    )
-    await _ui_show(callback.message, text, reply_markup=kb, edit=True)
 
 
 @router.callback_query(F.data.startswith("cust:svcchange:ask:"))
@@ -2239,30 +2304,20 @@ async def svc_change_link(callback: CallbackQuery) -> None:
             log.exception("change subscription link failed")
     if url:
         _persist_subscription_url(username, url)
-        u = username[:40]
-        text = (
-            "✅ لینک جدید صادر شد. لینک قبلی دیگر کار نمی‌کند.\n"
-            f"🔗 <b>لینک جدید</b>\n"
-            f"👤 <code>{ltr(username).lstrip(chr(0x200E))}</code>\n\n"
-            f"<code>{url}</code>"
+        try:
+            await callback.message.edit_text(
+                "✅ لینک جدید صادر شد. لینک قبلی دیگر کار نمی‌کند."
+            )
+        except Exception:
+            pass
+        await _show_subscription_link_ui(
+            callback.message,
+            username=username,
+            url=url,
+            back_cb=f"cust:svc:{username[:40]}",
+            edit=False,
+            include_username=False,
         )
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="📋 کپی لینک",
-                        copy_text=CopyTextButton(text=url),
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="⬅️ بازگشت به مشخصات",
-                        callback_data=f"cust:svc:{u}",
-                    )
-                ],
-            ]
-        )
-        await _ui_show(callback.message, text, reply_markup=kb, edit=True)
     else:
         await _ui_show(
             callback.message,

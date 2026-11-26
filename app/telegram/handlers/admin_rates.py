@@ -19,13 +19,13 @@ PAGE_SIZE = 8
 
 
 def _profile_label(p) -> str:
+    """Show telegram id, and username from DB when we have it."""
+    tid = p.telegram_id
     if p.username:
-        name = f"@{p.username}"
-    elif p.full_name:
-        name = p.full_name
-    else:
-        name = "بدون نام"
-    return f"{name} · {p.telegram_id}"
+        return f"{tid} · @{p.username}"
+    if p.full_name:
+        return f"{tid} · {p.full_name}"
+    return f"{tid}"
 
 
 @router.callback_query(F.data == "settings:rates")
@@ -258,20 +258,61 @@ async def _show_vd_picker(
     page: int = 0,
     query: str | None = None,
     edit: bool = True,
+    tab: str = "on",
 ) -> None:
+    """Two lists: enabled for vendor-direct pay vs not yet enabled."""
+    tab = "off" if tab == "off" else "on"
     with get_session() as session:
         selected = {u.lower() for u in repo.get_direct_vendor_card_usernames(session)}
-        items, total = repo.list_usable_usernames_with_owners_page(
-            session, query=query, page=page, page_size=PAGE_SIZE
+        # Pull a wide page then filter by tab so both lists stay accurate.
+        items, _ = repo.list_usable_usernames_with_owners_page(
+            session, query=query, page=0, page_size=2000
         )
+    if tab == "on":
+        filtered = [it for it in items if it["username"].lower() in selected]
+        # Also keep selected usernames that may not appear in usable inventory.
+        with get_session() as session:
+            listed = repo.get_direct_vendor_card_usernames(session)
+        seen = {it["username"].lower() for it in filtered}
+        for u in listed:
+            if u.lower() not in seen:
+                filtered.append(
+                    {
+                        "username": u,
+                        "owner_label": "—",
+                    }
+                )
+                seen.add(u.lower())
+        title = "✅ فعال‌شده برای پرداخت مستقیم"
+        empty = "هنوز نام کاربری‌ای فعال نشده."
+    else:
+        filtered = [it for it in items if it["username"].lower() not in selected]
+        title = "➕ هنوز فعال‌نشده"
+        empty = "همه نام‌ها فعال‌اند یا نتیجه‌ای نیست."
+    total = len(filtered)
+    start = max(0, page) * PAGE_SIZE
+    page_items = filtered[start : start + PAGE_SIZE]
     qnote = f"\nجستجو: <code>{query}</code>" if query else ""
     lines = [
-        "💳 <b>پرداخت مستقیم فروشنده — انتخاب نام کاربری</b>"
-        f"{qnote}\n"
-        "روی هر مورد بزنید تا به لیست اضافه/حذف شود."
+        f"💳 <b>پرداخت مستقیم فروشنده — انتخاب نام کاربری</b>\n"
+        f"<b>{title}</b>{qnote}\n"
+        "روی هر مورد بزنید تا بین دو لیست جابه‌جا شود."
     ]
-    kb: list[list[InlineKeyboardButton]] = []
-    for it in items:
+    if not page_items:
+        lines.append(f"\n{empty}")
+    kb: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=("✅ فعال‌ها" if tab == "on" else "فعال‌ها"),
+                callback_data="vduser:tab:on:0",
+            ),
+            InlineKeyboardButton(
+                text=("➕ غیرفعال‌ها" if tab == "off" else "غیرفعال‌ها"),
+                callback_data="vduser:tab:off:0",
+            ),
+        ]
+    ]
+    for it in page_items:
         uname = it["username"]
         in_list = uname.lower() in selected
         mark = "✅ حذف" if in_list else "➕ افزودن"
@@ -280,7 +321,7 @@ async def _show_vd_picker(
             [
                 InlineKeyboardButton(
                     text=f"{mark} · {uname} ({owner})"[:64],
-                    callback_data=f"vduser:tog:{uname[:40]}:{page}",
+                    callback_data=f"vduser:tog:{uname[:40]}:{page}:{tab}",
                 )
             ]
         )
@@ -288,19 +329,19 @@ async def _show_vd_picker(
         page=page,
         total=total,
         page_size=PAGE_SIZE,
-        callback_prefix="vduser:list",
+        callback_prefix=f"vduser:tab:{tab}",
     )
     if nav:
         kb.append(nav)
     kb.append(
-        [InlineKeyboardButton(text="🔎 جستجو", callback_data="vduser:search")]
+        [InlineKeyboardButton(text="🔎 جستجو", callback_data=f"vduser:search:{tab}")]
     )
     if query:
         kb.append(
             [
                 InlineKeyboardButton(
                     text="📋 نمایش همه",
-                    callback_data="vduser:list:0",
+                    callback_data=f"vduser:tab:{tab}:0",
                 )
             ]
         )
@@ -320,7 +361,22 @@ async def cb_vd_users_picker(callback: CallbackQuery, settings: Settings) -> Non
     if not is_admin(callback.from_user.id, settings):
         return
     await safe_answer(callback)
-    await _show_vd_picker(callback.message, page=0, edit=True)
+    await _show_vd_picker(callback.message, page=0, tab="on", edit=True)
+
+
+@router.callback_query(F.data.startswith("vduser:tab:"))
+async def cb_vd_tab(callback: CallbackQuery, settings: Settings) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    await safe_answer(callback)
+    parts = (callback.data or "").split(":")
+    # vduser:tab:on:0
+    tab = parts[2] if len(parts) > 2 else "on"
+    try:
+        page = int(parts[3]) if len(parts) > 3 else 0
+    except ValueError:
+        page = 0
+    await _show_vd_picker(callback.message, page=max(0, page), tab=tab, edit=True)
 
 
 @router.callback_query(F.data.startswith("vduser:list:"))
@@ -332,16 +388,18 @@ async def cb_vd_list(callback: CallbackQuery, settings: Settings) -> None:
         page = int((callback.data or "").rsplit(":", 1)[-1])
     except ValueError:
         page = 0
-    await _show_vd_picker(callback.message, page=max(0, page), edit=True)
+    await _show_vd_picker(callback.message, page=max(0, page), tab="on", edit=True)
 
 
-@router.callback_query(F.data == "vduser:search")
+@router.callback_query(F.data.startswith("vduser:search"))
 async def cb_vd_search(callback: CallbackQuery, settings: Settings) -> None:
     if not is_admin(callback.from_user.id, settings):
         return
     uid = callback.from_user.id if callback.from_user else 0
+    parts = (callback.data or "").split(":")
+    tab = parts[2] if len(parts) > 2 else "on"
     with get_session() as session:
-        repo.set_state(session, f"admin_flow:{uid}", "vduser_search")
+        repo.set_state(session, f"admin_flow:{uid}", f"vduser_search:{tab}")
     await callback.message.answer(
         "نام کاربری سرویس یا نام مالک را برای جستجو بفرستید.\n"
         "انصراف: <code>-</code>"
@@ -354,7 +412,7 @@ async def cb_vd_toggle(callback: CallbackQuery, settings: Settings) -> None:
     if not is_admin(callback.from_user.id, settings):
         return
     parts = (callback.data or "").split(":")
-    # vduser:tog:username:page
+    # vduser:tog:username:page[:tab]
     if len(parts) < 3:
         await callback.answer("نامعتبر", show_alert=True)
         return
@@ -363,10 +421,11 @@ async def cb_vd_toggle(callback: CallbackQuery, settings: Settings) -> None:
         page = int(parts[3]) if len(parts) > 3 else 0
     except ValueError:
         page = 0
+    tab = parts[4] if len(parts) > 4 else "on"
     with get_session() as session:
         now_on = repo.toggle_direct_vendor_card_username(session, uname)
     await callback.answer("اضافه شد" if now_on else "حذف شد")
-    await _show_vd_picker(callback.message, page=page, edit=True)
+    await _show_vd_picker(callback.message, page=page, tab=tab, edit=True)
 
 
 async def handle_rates_admin_text(message: Message, uid: int, flow: str, query: str) -> bool:
@@ -394,13 +453,16 @@ async def handle_rates_admin_text(message: Message, uid: int, flow: str, query: 
         )
         return True
 
-    if flow == "vduser_search":
+    if flow == "vduser_search" or flow.startswith("vduser_search:"):
+        tab = flow.split(":", 1)[1] if ":" in flow else "on"
         with get_session() as session:
             repo.set_state(session, f"admin_flow:{uid}", "")
         if query.strip() in {"-", "—"}:
-            await _show_vd_picker(message, page=0, edit=False)
+            await _show_vd_picker(message, page=0, tab=tab, edit=False)
             return True
-        await _show_vd_picker(message, page=0, query=query.strip(), edit=False)
+        await _show_vd_picker(
+            message, page=0, query=query.strip(), tab=tab, edit=False
+        )
         return True
 
     return False

@@ -48,10 +48,37 @@ def _mode_keyboard(
 
 
 def _duration_keyboard(username: str, sub_id: int | None = None) -> InlineKeyboardMarkup:
+    """Local sell-plan catalog (same packages customer bot uses) — no vendor fetch."""
     u = username[:40]
     ask = f"renew:ask:id:{sub_id}" if sub_id is not None else f"renew:ask:{u}"
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+    rows: list[list[InlineKeyboardButton]] = []
+    with get_session() as session:
+        plans = [
+            p
+            for p in repo.list_price_plans(session, enabled_only=True)
+            if repo.vendor_key_for_price_plan(p) != "finearts"
+            and int(p.duration_days or 0) > 0
+        ]
+        for plan in plans:
+            days = int(plan.duration_days or 0)
+            gb = int(plan.traffic_gb) if plan.traffic_gb else 0
+            price = int(plan.price_toman or 0)
+            label = plan.title or (
+                f"{days} روز · {gb} گیگ" if gb else f"{days} روز"
+            )
+            if price:
+                label = f"{label} — {price:,} ت"
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=label[:64],
+                        callback_data=f"renew:plan:{plan.id}:{u}",
+                    )
+                ]
+            )
+    if not rows:
+        # Fallback to classic month buttons if catalog empty.
+        rows = [
             [
                 InlineKeyboardButton(
                     text="📅 ۱ ماه",
@@ -70,9 +97,44 @@ def _duration_keyboard(username: str, sub_id: int | None = None) -> InlineKeyboa
                     callback_data=f"renew:dur:productextendmonths_91:{u}",
                 )
             ],
-            [InlineKeyboardButton(text="⬅️ بازگشت", callback_data=ask)],
         ]
-    )
+    rows.append([InlineKeyboardButton(text="⬅️ بازگشت", callback_data=ask)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def _create_plans_keyboard() -> InlineKeyboardMarkup:
+    """Admin create: pick from local customer catalog prices/packages."""
+    rows: list[list[InlineKeyboardButton]] = []
+    with get_session() as session:
+        plans = repo.list_price_plans(session, enabled_only=True)
+        for plan in plans:
+            days = int(plan.duration_days or 0)
+            gb = int(plan.traffic_gb) if plan.traffic_gb else 0
+            price = int(plan.price_toman or 0)
+            vkey = repo.vendor_key_for_price_plan(plan)
+            icon = "💎" if vkey == "finearts" or days <= 0 else "✨"
+            if days <= 0:
+                dur = "نامحدود"
+            elif days >= 90:
+                dur = "۳ ماه"
+            elif days >= 60:
+                dur = "۲ ماه"
+            else:
+                dur = "۱ ماه"
+            gb_s = f"{gb} گیگ" if gb else (plan.title or "پلن")
+            label = f"{icon} {gb_s} · {dur}"
+            if price:
+                label = f"{label} — {price:,} ت"
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=label[:64],
+                        callback_data=f"create:plan:{plan.id}",
+                    )
+                ]
+            )
+    rows.append([InlineKeyboardButton(text="🚫 انصراف", callback_data="menu:home")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def _ui_edit(
@@ -232,50 +294,70 @@ async def cb_create_owner_skip(
     await _ui_edit(
         callback.message,
         f"خرید برای <code>{username}</code>\nبدون مالک مشتری\n"
-        "فروشنده / پلن را انتخاب کنید:",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="✨ NetPlus · ۱ ماه",
-                        callback_data="create:dur:productmonth_31",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="✨ NetPlus · ۲ ماه",
-                        callback_data="create:dur:productmonth_61",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="✨ NetPlus · ۳ ماه",
-                        callback_data="create:dur:productmonth_91",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="💎 FineArts · ۵۰ گیگ نامحدود",
-                        callback_data="create:fa:50",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="💎 FineArts · ۱۰۰ گیگ نامحدود",
-                        callback_data="create:fa:100",
-                    )
-                ],
-                [InlineKeyboardButton(text="🚫 انصراف", callback_data="menu:home")],
-            ]
-        ),
+        "پلن را از کاتالوگ مشتری انتخاب کنید:",
+        reply_markup=_create_plans_keyboard(),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("create:plan:"))
+async def cb_create_plan(
+    callback: CallbackQuery, settings: Settings, renew_queue: RenewQueue
+) -> None:
+    """Admin create from local sell catalog (same plans as customer bot)."""
+    if not is_admin(callback.from_user.id, settings):
+        return
+    try:
+        plan_id = int((callback.data or "").rsplit(":", 1)[-1])
+    except ValueError:
+        await callback.answer("پلن نامعتبر", show_alert=True)
+        return
+    uid = callback.from_user.id
+    with get_session() as session:
+        username = repo.get_state(session, f"admin_create_user:{uid}")
+        owner = (repo.get_state(session, f"admin_create_owner:{uid}") or "").strip()
+        plan = repo.get_price_plan(session, plan_id)
+        if not plan or not plan.enabled:
+            await callback.answer("پلن یافت نشد", show_alert=True)
+            return
+        duration_cb, package_cb, vendor_id = repo.create_job_args_from_plan(
+            session, plan
+        )
+        if vendor_id is None and repo.vendor_key_for_price_plan(plan) == "finearts":
+            fa = repo.ensure_vendor(
+                session, "finearts", "FineArts", settings.finearts_bot
+            )
+            vendor_id = fa.id
+            package_cb = package_cb or repo.finearts_package_callback_for_plan(plan)
+        repo.set_state(session, f"admin_flow:{uid}", "")
+        repo.set_state(session, f"admin_create_user:{uid}", "")
+        repo.set_state(session, f"admin_create_owner:{uid}", "")
+        plan_title = plan.title or str(plan_id)
+    if not username:
+        await callback.answer(
+            "نام کاربری ذخیره نشده؛ دوباره از منو شروع کنید", show_alert=True
+        )
+        return
+    await _enqueue(
+        callback,
+        renew_queue,
+        username,
+        "create",
+        duration_cb,
+        kind="create",
+        package_callback=package_cb,
+        vendor_id=vendor_id,
+        owner_tg=owner,
+        plan_id=plan_id,
+    )
+    _ = plan_title
 
 
 @router.callback_query(F.data.startswith("create:dur:"))
 async def cb_create_duration(
     callback: CallbackQuery, settings: Settings, renew_queue: RenewQueue
 ) -> None:
+    """Legacy create callbacks kept for older admin messages."""
     if not is_admin(callback.from_user.id, settings):
         return
     duration = (callback.data or "").split(":", 2)[2]
@@ -304,6 +386,7 @@ async def cb_create_duration(
 async def cb_create_finearts(
     callback: CallbackQuery, settings: Settings, renew_queue: RenewQueue
 ) -> None:
+    """Legacy FineArts create callbacks kept for older admin messages."""
     if not is_admin(callback.from_user.id, settings):
         return
     gb = (callback.data or "").rsplit(":", 1)[-1]
@@ -337,6 +420,42 @@ async def cb_create_finearts(
     )
 
 
+@router.callback_query(F.data.startswith("renew:plan:"))
+async def cb_renew_plan(
+    callback: CallbackQuery, settings: Settings, renew_queue: RenewQueue
+) -> None:
+    """Admin renew change-plan using a local sell catalog plan id."""
+    if not is_admin(callback.from_user.id, settings):
+        return
+    parts = (callback.data or "").split(":")
+    # renew:plan:{plan_id}:{username}
+    if len(parts) < 4:
+        await callback.answer("داده نامعتبر", show_alert=True)
+        return
+    try:
+        plan_id = int(parts[2])
+    except ValueError:
+        await callback.answer("پلن نامعتبر", show_alert=True)
+        return
+    username = parts[3]
+    with get_session() as session:
+        plan = repo.get_price_plan(session, plan_id)
+        if not plan or not plan.enabled:
+            await callback.answer("پلن یافت نشد", show_alert=True)
+            return
+        days = int(plan.duration_days) if plan.duration_days is not None else 31
+        duration_cb = repo.renew_extend_callback_for_days(days) or None
+    await _enqueue(
+        callback,
+        renew_queue,
+        username,
+        "change",
+        duration_cb,
+        kind="renew",
+        plan_id=plan_id,
+    )
+
+
 async def _enqueue(
     callback: CallbackQuery,
     renew_queue: RenewQueue,
@@ -348,6 +467,7 @@ async def _enqueue(
     package_callback: str | None = None,
     vendor_id: int | None = None,
     owner_tg: str | None = None,
+    plan_id: int | None = None,
 ) -> None:
     from app.utils.text import sanitize_service_username
 
@@ -376,6 +496,7 @@ async def _enqueue(
             package_callback=package_callback,
             kind=kind,
             vendor_id=vendor_id,
+            plan_id=plan_id,
         )
         job_id = job.id
         sub_id = sub.id if sub else None

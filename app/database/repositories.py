@@ -2146,6 +2146,36 @@ def renew_extend_callback_for_days(days: int | None) -> str:
     return "productextendmonths_31"
 
 
+def create_month_callback_for_days(days: int | None) -> str:
+    """NetPlus create duration callback from sell-plan days."""
+    d = 31 if days is None else int(days)
+    if d <= 0:
+        return ""
+    if d >= 90:
+        return "productmonth_91"
+    if d >= 60:
+        return "productmonth_61"
+    return "productmonth_31"
+
+
+def create_job_args_from_plan(
+    session: Session, plan: PricePlan | None
+) -> tuple[str | None, str | None, int | None]:
+    """
+    Map a local sell plan → (duration_callback, package_callback, vendor_id).
+    Used by admin create so we never re-query vendor package menus.
+    """
+    if plan is None:
+        return None, None, None
+    vkey = vendor_key_for_price_plan(plan)
+    vendor = get_vendor_by_key(session, vkey) if vkey else None
+    vendor_id = vendor.id if vendor else None
+    if vkey == "finearts":
+        return None, finearts_package_callback_for_plan(plan), vendor_id
+    days = int(plan.duration_days) if plan.duration_days is not None else 31
+    return create_month_callback_for_days(days) or None, None, vendor_id
+
+
 def renew_job_args_from_order(
     session: Session, order: CustomerOrder
 ) -> tuple[str, str | None]:
@@ -3874,8 +3904,8 @@ def list_bot_messages(session: Session) -> list[BotMessage]:
     return list(session.scalars(select(BotMessage).order_by(BotMessage.key.asc())))
 
 
-EDU_ANDROID_V2RAYNG_TITLE = "اتصال در برنامه V2rayNG"
-EDU_ANDROID_V2RAYNG_BODY = (
+EDU_ANDROID_INSTALL_TITLE = "📲 نصب سرویس"
+EDU_ANDROID_INSTALL_BODY = (
     "برای دانلود آخرین نسخه V2rayNG اندروید وارد لینک زیر شوید👇👇\n"
     "https://t.me/fxonevpn/4\n\n"
     "برای راه‌اندازی اشتراک روی <b>اندروید</b> با برنامه "
@@ -3885,13 +3915,26 @@ EDU_ANDROID_V2RAYNG_BODY = (
     "3️⃣ گزینه <b>➕</b> را انتخاب کنید.\n"
     "4️⃣ گزینه <b>دوم</b> را انتخاب کنید.\n"
     "5️⃣ یک‌بار برنامه را کامل ببندید و مجدد باز کنید.\n"
-    "6️⃣ سپس از منوی سه‌نقطهٔ بالای صفحه، گزینهٔ آخر را بزنید و "
+    "6️⃣ از منوی سه‌نقطهٔ بالای صفحه، گزینهٔ آخر را بزنید و "
     "<b>بروزرسانی</b> را انجام دهید.\n"
     "7️⃣ بعد از بروزرسانی، سرورها مشاهده خواهند شد.\n"
-    "8️⃣ اگر بعد از بروزرسانی سرورها بالا نیامدند، اینترنت را عوض کنید "
-    "و با اینترنت دیگری دوباره بروزرسانی را انجام دهید.\n\n"
+    "8️⃣ اگر سرورها بالا نیامدند، اینترنت را عوض کنید و دوباره "
+    "بروزرسانی کنید.\n\n"
     "✨ پس از دیدن سرورها، یکی را انتخاب کنید و اتصال را روشن کنید."
 )
+
+EDU_ANDROID_UPDATE_TITLE = "🔄 به‌روزرسانی سرویس"
+EDU_ANDROID_UPDATE_BODY = (
+    "روش بروزرسانی اشتراک :\n"
+    "1- فیلترشکن را خاموش کنید\n"
+    "2- سپس در برنامه از طریق منوی سه نقطه بالای صفحه و گزینه آخر را انتخاب کنید\n"
+    "3- بعد از بروزرسانی اخرین تغییرات را خواهید دید\n"
+    "4- سرور مورد نظر را انتخاب کرده و فیلترشکن را روشن نمایید"
+)
+
+# Backward-compatible aliases (older callers / seeds).
+EDU_ANDROID_V2RAYNG_TITLE = EDU_ANDROID_INSTALL_TITLE
+EDU_ANDROID_V2RAYNG_BODY = EDU_ANDROID_INSTALL_BODY
 
 EDU_IOS_V2BOX_TITLE = "اتصال در برنامه V2Box"
 EDU_IOS_V2BOX_BODY = (
@@ -3982,12 +4025,57 @@ def ensure_default_education(session: Session) -> None:
     )
 
     android = _ensure_root("اندروید", 20)
+    # Drop legacy single-lesson / attachment so install+update appear as two choices.
+    for les in list_education_lessons(session, android.id, enabled_only=False):
+        title = (les.title or "").lower()
+        if any(
+            tok in title
+            for tok in ("v2ray", "اتصال", "نصب", "به‌روز", "بروز", "update", "install")
+        ):
+            les.media_type = None
+            les.media_file_id = None
+            les.media_caption = None
     _upsert_guide_lesson(
         android.id,
-        title=EDU_ANDROID_V2RAYNG_TITLE,
-        body=EDU_ANDROID_V2RAYNG_BODY,
-        match_tokens=("v2ray", "اندروید", "android", "اتصال"),
+        title=EDU_ANDROID_INSTALL_TITLE,
+        body=EDU_ANDROID_INSTALL_BODY,
+        match_tokens=("نصب سرویس", "نصب", "v2ray", "اتصال"),
     )
+    # Force sort + second lesson for update guide.
+    install = None
+    update = None
+    for les in list_education_lessons(session, android.id, enabled_only=False):
+        t = (les.title or "").lower()
+        if "به‌روز" in t or "بروز" in t or "update" in t:
+            update = les
+        elif "نصب" in t or "v2ray" in t or "اتصال" in t:
+            install = les
+    if install is not None:
+        install.title = EDU_ANDROID_INSTALL_TITLE
+        install.body = EDU_ANDROID_INSTALL_BODY
+        install.sort_order = 0
+        install.enabled = True
+        install.media_type = None
+        install.media_file_id = None
+        install.media_caption = None
+    if update is None:
+        session.add(
+            EducationLesson(
+                category_id=android.id,
+                title=EDU_ANDROID_UPDATE_TITLE,
+                body=EDU_ANDROID_UPDATE_BODY,
+                sort_order=1,
+                enabled=True,
+            )
+        )
+    else:
+        update.title = EDU_ANDROID_UPDATE_TITLE
+        update.body = EDU_ANDROID_UPDATE_BODY
+        update.sort_order = 1
+        update.enabled = True
+        update.media_type = None
+        update.media_file_id = None
+        update.media_caption = None
     session.flush()
 
 

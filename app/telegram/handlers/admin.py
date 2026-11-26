@@ -10,7 +10,9 @@ log = logging.getLogger(__name__)
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
+    BufferedInputFile,
     CallbackQuery,
+    CopyTextButton,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
@@ -141,6 +143,12 @@ def sub_actions(
         refresh_cb = f"sub:refresh:{u}"
     rows = [
         [InlineKeyboardButton(text="♻️ تمدید اشتراک", callback_data=renew_cb)],
+        [
+            InlineKeyboardButton(
+                text="🔗 لینک اشتراک",
+                callback_data=f"admin:svclink:{u}",
+            )
+        ],
         [
             InlineKeyboardButton(
                 text="🔄 بروزرسانی از لینک",
@@ -2799,6 +2807,60 @@ async def cb_subinfo(callback: CallbackQuery, settings: Settings) -> None:
     await _ui_show(callback.message, text, reply_markup=markup, edit=True)
 
 
+@router.callback_query(F.data.startswith("admin:svclink:"))
+async def cb_admin_svclink(callback: CallbackQuery, settings: Settings) -> None:
+    """Show subscription URL + QR from admin service detail menu."""
+    if not is_admin(callback.from_user.id, settings):
+        return
+    username = (callback.data or "").split(":", 2)[2]
+    with get_session() as session:
+        sub = repo.get_subscription_by_username(session, username)
+        url = (sub.subscription_url or "").strip() if sub else ""
+        back = (
+            f"subinfo:id:{sub.id}"
+            if sub
+            else f"subinfo:{username[:40]}"
+        )
+    if not url:
+        await safe_answer(
+            callback,
+            "لینک اشتراک ذخیره نشده است.",
+            show_alert=True,
+        )
+        return
+    await safe_answer(callback)
+    caption = (
+        f"🔗 <b>لینک اشتراک</b>\n"
+        f"👤 <code>{ltr(username)}</code>\n\n"
+        f"<code>{url}</code>"
+    )
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 کپی لینک",
+                    copy_text=CopyTextButton(text=url),
+                )
+            ],
+            [InlineKeyboardButton(text="⬅️ بازگشت", callback_data=back)],
+        ]
+    )
+    if url.startswith("http"):
+        try:
+            from app.utils.subscription_qr import subscription_qr_png
+
+            png = subscription_qr_png(url)
+            await callback.message.answer_photo(
+                BufferedInputFile(png, filename=f"{username[:40]}_sub.png"),
+                caption=caption,
+                reply_markup=kb,
+            )
+            return
+        except Exception:
+            log.exception("admin subscription QR failed for %s", username)
+    await _ui_show(callback.message, caption, reply_markup=kb, edit=True)
+
+
 @router.callback_query(F.data.startswith("sub:refresh:"))
 async def cb_refresh(callback: CallbackQuery, settings: Settings) -> None:
     """Refresh service usage/expiry from the stored subscription URL only."""
@@ -4354,44 +4416,12 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
         uname = ""
         with get_session() as session:
             uname = repo.get_state(session, f"admin_create_user:{uid}") or "—"
+        from app.telegram.handlers.renew import _create_plans_keyboard
+
         await message.answer(
             f"خرید برای <code>{uname}</code>\n{owner_line}\n"
-            "فروشنده / پلن را انتخاب کنید:",
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text="✨ NetPlus · ۱ ماه",
-                            callback_data="create:dur:productmonth_31",
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text="✨ NetPlus · ۲ ماه",
-                            callback_data="create:dur:productmonth_61",
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text="✨ NetPlus · ۳ ماه",
-                            callback_data="create:dur:productmonth_91",
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text="💎 FineArts · ۵۰ گیگ نامحدود",
-                            callback_data="create:fa:50",
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text="💎 FineArts · ۱۰۰ گیگ نامحدود",
-                            callback_data="create:fa:100",
-                        )
-                    ],
-                    [InlineKeyboardButton(text="🚫 انصراف", callback_data="menu:home")],
-                ]
-            ),
+            "پلن را از کاتالوگ مشتری انتخاب کنید:",
+            reply_markup=_create_plans_keyboard(),
         )
         return
 

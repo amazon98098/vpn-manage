@@ -26,6 +26,8 @@ DEFAULT_REQUIRED_CHANNEL = "fxonevpn"
 # Avoid spamming logs / admins when the bot is not a channel admin.
 _last_misconfig_log_at = 0.0
 _MISCONFIG_LOG_EVERY_SEC = 300.0
+# Last join-gate prompt per user so we can edit in place instead of flooding chat.
+_gate_msg: dict[int, tuple[int, int]] = {}
 
 MembershipResult = Literal["member", "not_member", "check_failed"]
 
@@ -188,11 +190,32 @@ class ChannelMembershipMiddleware(BaseMiddleware):
         if isinstance(event, CallbackQuery):
             await event.answer("عضویت در کانال لازم است", show_alert=True)
             try:
-                await event.message.answer(text, reply_markup=kb)
+                # Reuse the same chat bubble instead of spamming new messages.
+                await event.message.edit_text(text, reply_markup=kb)
             except Exception:
-                pass
+                try:
+                    await event.message.answer(text, reply_markup=kb)
+                except Exception:
+                    pass
             return None
         if isinstance(event, Message):
-            await event.answer(text, reply_markup=kb)
+            # Prefer editing the previous gate prompt for this chat when possible.
+            prev = _gate_msg.get(user.id)
+            if prev and prev[0] == event.chat.id:
+                try:
+                    await bot.edit_message_text(
+                        text,
+                        chat_id=prev[0],
+                        message_id=prev[1],
+                        reply_markup=kb,
+                    )
+                    return None
+                except Exception:
+                    pass
+            try:
+                sent = await event.answer(text, reply_markup=kb)
+                _gate_msg[user.id] = (event.chat.id, sent.message_id)
+            except Exception:
+                pass
             return None
         return await handler(event, data)

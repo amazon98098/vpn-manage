@@ -45,10 +45,22 @@ CUSTOMER_ACTIONS: dict[str, dict[str, Any]] = {
         "label": "💬 پشتیبانی",
         "aliases": ["💬 پشتیبانی", "🆘 پشتیبانی"],
     },
+    "referral": {
+        "fa_name": "مجموعه‌گیری",
+        "label": "🎁 مجموعه‌گیری",
+        "aliases": ["🎁 مجموعه‌گیری", "مجموعه‌گیری"],
+        # Present in catalog for later enable; omitted from default layout while off.
+        "enabled": False,
+    },
     "hide_menu": {
         "fa_name": "مخفی کردن منو",
         "label": "⬇️ مخفی کردن منو",
-        "aliases": ["⬇️ مخفی کردن منو", "مخفی کردن منو"],
+        "aliases": ["⬇️ مخفی کردن منو", "مخفی کردن منو", "⬇️ منو"],
+    },
+    "show_menu": {
+        "fa_name": "نمایش منو",
+        "label": "⬆️ نمایش منو",
+        "aliases": ["⬆️ نمایش منو", "نمایش منو", "⬆️ منو"],
     },
 }
 
@@ -56,6 +68,7 @@ DEFAULT_CUSTOMER_LAYOUT: list[list[str]] = [
     ["buy", "mine"],
     ["wallet", "prices"],
     ["guide", "support"],
+    # "referral" stays off until explicitly enabled in layout/settings.
     ["hide_menu"],
 ]
 
@@ -497,7 +510,10 @@ def build_reply_menu(bot: str) -> ReplyKeyboardMarkup:
     for row in layout:
         btns: list[KeyboardButton] = []
         for action in row:
-            if action not in catalog:
+            meta = catalog.get(action)
+            if not meta:
+                continue
+            if meta.get("enabled") is False:
                 continue
             btns.append(KeyboardButton(text=label_for(bot, action)))
         if btns:
@@ -511,9 +527,14 @@ def build_reply_menu(bot: str) -> ReplyKeyboardMarkup:
             else DEFAULT_ADMIN_LAYOUT
         )
         for row in default:
-            rows.append(
-                [KeyboardButton(text=label_for(bot, a)) for a in row if a in catalog]
-            )
+            row_btns: list[KeyboardButton] = []
+            for a in row:
+                meta = catalog.get(a)
+                if not meta or meta.get("enabled") is False:
+                    continue
+                row_btns.append(KeyboardButton(text=label_for(bot, a)))
+            if row_btns:
+                rows.append(row_btns)
     placeholder = {
         "customer": "منو یا دستور…",
         "customer_support": "پشتیبانی…",
@@ -524,6 +545,16 @@ def build_reply_menu(bot: str) -> ReplyKeyboardMarkup:
         resize_keyboard=True,
         is_persistent=True,
         input_field_placeholder=placeholder,
+    )
+
+
+def collapsed_customer_menu() -> ReplyKeyboardMarkup:
+    """NetPlus-style: single toggle button instead of removing the keyboard."""
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=label_for("customer", "show_menu"))]],
+        resize_keyboard=True,
+        is_persistent=True,
+        input_field_placeholder="منو جمع شده…",
     )
 
 

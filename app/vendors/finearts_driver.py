@@ -755,14 +755,29 @@ class FineArtsRenewDriver:
     async def change_subscription_link(
         self, username: str, service_id: str | None = None
     ) -> str | None:
+        """Click «تغییر لینک», confirm if asked, then return the new URL."""
         async with self.lock:
             after = await self._click_service_action(username, service_id, "changelink_")
             if not after:
                 return None
+            for _ in range(3):
+                confirm = (
+                    find_data(after, "confirmserivce", exact=True)
+                    or find_data(after, "confirmandgetservice", exact=True)
+                    or find_data(after, "confirm", exact=False)
+                )
+                if not confirm:
+                    break
+                nxt = await self.click_data(after, confirm)
+                if not nxt:
+                    break
+                after = nxt
+                await asyncio.sleep(0.8)
             text = after.message or ""
             m = re.search(r"https?://\S+", text)
             if m:
                 return m.group(0).rstrip(").,]")
+            await asyncio.sleep(0.6)
             url_msg = await self._click_service_action(
                 username, service_id, "subscriptionurl_"
             )

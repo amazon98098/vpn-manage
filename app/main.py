@@ -206,9 +206,13 @@ async def run() -> None:
         customer_dp = Dispatcher()
         customer_dp["settings"] = settings
         from app.telegram.channel_gate import ChannelMembershipMiddleware
+        from app.telegram.customer_busy import CustomerBusyMiddleware
 
         customer_dp.message.middleware(ChannelMembershipMiddleware())
         customer_dp.callback_query.middleware(ChannelMembershipMiddleware())
+        # After channel gate: serialize taps and show «لطفاً صبر نمایید…» while busy.
+        customer_dp.message.middleware(CustomerBusyMiddleware())
+        customer_dp.callback_query.middleware(CustomerBusyMiddleware())
         customer_dp.include_router(build_customer_router())
         try:
             await customer_bot.set_my_commands(
