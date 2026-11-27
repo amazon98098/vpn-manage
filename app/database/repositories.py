@@ -3212,7 +3212,11 @@ def create_rate_tier_invite(
 def consume_rate_tier_invite(
     session: Session, token: str, telegram_id: int
 ) -> str | None:
-    """One-time invite → set rate_tier. Returns applied tier or None."""
+    """One-time invite → set rate_tier. Returns applied tier or None.
+
+    Claim the token first, then re-read so a concurrent consumer that overwrote
+    ``used_by`` wins and this caller returns None without applying the tier.
+    """
     tok = (token or "").strip()
     if not tok:
         return None
@@ -3221,12 +3225,18 @@ def consume_rate_tier_invite(
     if not isinstance(row, dict) or row.get("used"):
         return None
     tier = normalize_rate_tier(str(row.get("tier") or "friends"))
-    set_customer_rate_tier(session, telegram_id, tier)
+    claimer = int(telegram_id)
     row["used"] = True
-    row["used_by"] = int(telegram_id)
+    row["used_by"] = claimer
     row["used_at"] = datetime.utcnow().isoformat()
     store[tok] = row
     _save_invite_store(session, store)
+    session.flush()
+    # Re-load: if another writer claimed the same token, abort.
+    again = _invite_store(session).get(tok)
+    if not isinstance(again, dict) or int(again.get("used_by") or 0) != claimer:
+        return None
+    set_customer_rate_tier(session, claimer, tier)
     return tier
 
 
@@ -3747,6 +3757,7 @@ def merge_username_case_duplicates(
             keep.product_name = other.product_name
         keep_link = get_link_for_subscription(session, keep.id)
         # Retarget / collapse ownership links without violating unique subscription_id.
+        # Never delete another customer's ownership when folding case-only inventory dups.
         for link in list(
             session.scalars(
                 select(CustomerServiceLink).where(
@@ -3763,8 +3774,18 @@ def merge_username_case_duplicates(
                 if keep.vendor_id:
                     link.vendor_id = keep.vendor_id
                 continue
+            if (
+                keep_link is not None
+                and int(link.telegram_id) != int(keep_link.telegram_id)
+            ):
+                # Different owner on a case-variant: keep their username claim,
+                # but clear subscription_id so unique(subscription_id) is safe.
+                link.service_username = canon
+                if link.subscription_id in {other.id, keep.id}:
+                    link.subscription_id = None
+                continue
             if keep_link is not None and link.id != keep_link.id:
-                # Prefer the keep owner; drop the duplicate link row.
+                # Same owner, extra link row for the case-variant — drop duplicate.
                 session.delete(link)
                 continue
             link.subscription_id = keep.id

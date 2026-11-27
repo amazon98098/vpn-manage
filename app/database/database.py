@@ -334,12 +334,15 @@ def _migrate_sqlite(engine) -> None:
         if "subscriptions" in tables:
             _drop_vendor_username_unique(conn)
 
-        # Partial unique: one usable subscription per username globally.
+        # Partial unique: one usable subscription per username globally (case-insensitive).
         usable = ",".join(f"'{s}'" for s in sorted(USABLE_SUBSCRIPTION_STATUSES))
         conn.execute(
+            text("DROP INDEX IF EXISTS uq_subscriptions_usable_username")
+        )
+        conn.execute(
             text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_subscriptions_usable_username "
-                f"ON subscriptions(username) WHERE status IN ({usable})"
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_subscriptions_usable_username_ci "
+                f"ON subscriptions(lower(username)) WHERE status IN ({usable})"
             )
         )
         # One local owner per subscription row when subscription_id is set.

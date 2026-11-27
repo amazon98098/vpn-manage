@@ -1410,21 +1410,6 @@ async def cb_vendor_strategy_set(callback: CallbackQuery, settings: Settings) ->
     await _refresh_strategy_screen(callback.message, edit=True)
 
 
-@router.callback_query(F.data == "menu:help")
-async def cb_help(callback: CallbackQuery, settings: Settings) -> None:
-    if not is_admin(callback.from_user.id, settings):
-        return
-    await safe_answer(callback)
-    await _ui_show(
-        callback.message,
-        "هشدارهای NetPlus اینجا می‌آیند.\n"
-        "تمدید و خرید جدید را به صف یک‌به‌یک بفرستید؛ مبلغ یکتا را پرداخت کنید.\n"
-        "اگر تایید خودکار نیامد، دکمه رسید را بزنید و عکس رسید را در همین ربات بفرستید.",
-        reply_markup=main_menu(),
-        edit=True,
-    )
-
-
 @router.callback_query(F.data == "menu:prices")
 async def cb_prices(callback: CallbackQuery, settings: Settings) -> None:
     if not is_admin(callback.from_user.id, settings):
@@ -3677,15 +3662,6 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
             reply_markup=admin_reply_menu(),
         )
         return
-    if query in admin_menu_labels("admin", "help"):
-        with get_session() as session:
-            help_text = repo.get_bot_message(session, "admin.help")
-        await message.answer(
-            help_text,
-            reply_markup=admin_reply_menu(),
-        )
-        return
-
     # Manual unique-amount confirm (same idea as NetPlus auto-match)
     if query.startswith("تایید مبلغ") or query.lower().startswith("confirm amount"):
         parts = query.replace("تایید مبلغ", "").replace("confirm amount", "")
