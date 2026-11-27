@@ -4386,23 +4386,31 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
         return
 
     if flow == "create_wait_username":
-        from app.utils.text import sanitize_service_username
+        from app.utils.text import sanitize_service_username_base
 
-        cleaned = sanitize_service_username(query)
+        cleaned = sanitize_service_username_base(query)
         if not cleaned:
             await message.answer(
                 "❌ نام کاربری نامعتبر است.\n"
-                "فقط حروف انگلیسی، عدد و _ (۳ تا ۳۲ کاراکتر؛ "
+                "فقط حروف انگلیسی، عدد و _ (۳ تا ۲۷ کاراکتر پایه؛ "
                 "شروع/پایان با _ نباشد).\n"
+                "یک کد ۴ رقمی یکتا خودکار اضافه می‌شود.\n"
                 "دوباره بفرستید:"
             )
             return
         with get_session() as session:
-            repo.set_state(session, f"admin_create_user:{uid}", cleaned)
+            final = repo.allocate_unique_create_username(session, cleaned, 0)
+            if not final:
+                await message.answer(
+                    "❌ نتوانستیم نام یکتا بسازیم. پایه دیگری بفرستید:"
+                )
+                return
+            repo.set_state(session, f"admin_create_user:{uid}", final)
             repo.set_state(session, f"admin_create_owner:{uid}", "")
             repo.set_state(session, f"admin_flow:{uid}", "create_wait_owner")
         await message.answer(
-            f"خرید برای <code>{cleaned}</code>\n\n"
+            f"خرید برای نام نهایی <code>{final}</code>\n"
+            f"(پایه: <code>{cleaned}</code> + کد یکتا)\n\n"
             "شناسه تلگرام مالک مشتری را بفرستید "
             "(برای ارسال لینک/QR بعد از ساخت).\n"
             "اگر مالک ندارید، <code>-</code> بفرستید.",

@@ -745,19 +745,19 @@ def create_app() -> FastAPI:
         owner_tg: str = Form(""),
         _auth: None = Depends(_require_auth),
     ):
-        from app.utils.text import sanitize_service_username
+        from app.utils.text import sanitize_service_username_base
 
-        uname = sanitize_service_username(username) or ""
-        if not uname:
+        base = sanitize_service_username_base(username) or ""
+        if not base:
             return RedirectResponse("/services/create?err=username", status_code=303)
         with get_session() as session:
             plan = repo.get_price_plan(session, int(plan_id or 0))
             if not plan or not plan.enabled:
                 return RedirectResponse("/services/create?err=plan", status_code=303)
-            ok, reason = repo.is_username_available_for_create(session, uname, 0)
-            if not ok:
+            uname = repo.allocate_unique_create_username(session, base, 0)
+            if not uname:
                 return RedirectResponse(
-                    f"/services/create?err={reason or 'username'}", status_code=303
+                    "/services/create?err=username", status_code=303
                 )
             if _username_busy(session, uname):
                 return RedirectResponse("/services/create?err=busy", status_code=303)

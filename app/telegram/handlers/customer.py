@@ -112,7 +112,9 @@ USERNAME_HELP = (
     "⚠️ نام کاربری باید انگلیسی باشد.\n"
     "✅ نام‌های صحیح: <code>ali12</code> | <code>mahdi</code> | <code>ws1_ksdf</code>\n"
     "❌ نادرست: <code>ali_</code> | <code>tele@</code> | <code>_mahdi</code> | فارسی\n"
-    "📏 بین ۳ تا ۳۲ کاراکتر؛ فقط حروف، اعداد و خط زیر."
+    "📏 بین ۳ تا ۲۷ کاراکتر؛ فقط حروف، اعداد و خط زیر.\n"
+    "🔢 یک کد ۴ رقمی کوتاه برای یکتا بودن به انتهای نام اضافه می‌شود "
+    "(مثال: <code>mahdi_4821</code>)."
 )
 
 
@@ -295,9 +297,10 @@ def _can_take_payment(settings: Settings, *, username: str | None = None) -> boo
 
 
 def _valid_username(name: str) -> str | None:
-    from app.utils.text import sanitize_service_username
+    """Validate customer-chosen base name (unique ``_XXXX`` is added later on create)."""
+    from app.utils.text import sanitize_service_username_base
 
-    return sanitize_service_username(name)
+    return sanitize_service_username_base(name)
 
 
 def _username_taken_text(reason: str) -> str:
@@ -1355,11 +1358,19 @@ async def _show_invoice(message: Message, uid: int, draft: dict, *, edit: bool =
         if int(plan.duration_days or 0) == 0
         else f"{plan.duration_days} روز"
     )
+    base_note = ""
+    base = str(draft.get("username_base") or "").strip()
+    if kind == "create" and base and base != username:
+        base_note = (
+            f"🧩 نام نهایی یکتا: <code>{username}</code>\n"
+            f"(از نام درخواستی <code>{base}</code> + کد ۴ رقمی)\n"
+        )
     text = (
         f"📜 <b>{title}</b>\n\n"
         f"{mode_line}"
         f"{plan_icon} نام اشتراک: <b>{plan.title}</b>\n"
         f"👤 نام کاربری: <b>{username}</b>\n"
+        f"{base_note}"
         f"⏱ مدت: <b>{dur_label}</b>\n"
         f"🔋 حجم: <b>{gb}</b>\n"
         f"💸 مبلغ: <b>{price:,}</b> تومان\n"
@@ -2099,7 +2110,8 @@ def _create_success_caption(
     days = str(duration_days) if duration_days is not None else "—"
     return (
         "✅ سرویس با موفقیت ایجاد شد\n\n"
-        f"👤 نام کاربری سرویس : <code>{ltr(username).lstrip(chr(0x200E))}</code>\n"
+        f"👤 نام کاربری نهایی سرویس : <code>{ltr(username).lstrip(chr(0x200E))}</code>\n"
+        "⚠️ همین نام را برای تمدید و پشتیبانی استفاده کنید.\n"
         f"🌿محصول: {product or '—'}\n"
         f"⏳ مدت زمان: {days} روز\n\n"
         "لینک اتصال:\n"
@@ -3925,21 +3937,23 @@ async def text_flow(message: Message, settings: Settings) -> None:
         return
 
     if draft.get("step") == "username":
-        username = _valid_username(text)
-        if not username:
+        base = _valid_username(text)
+        if not base:
             await message.answer(
                 _msg("username_invalid", help=USERNAME_HELP),
                 reply_markup=_back_kb(),
             )
             return
         with get_session() as session:
-            ok, reason = repo.is_username_available_for_create(session, username, uid)
-        if not ok:
+            username = repo.allocate_unique_create_username(session, base, uid)
+        if not username:
             await message.answer(
-                _username_taken_text(reason),
+                "❌ نتوانستیم برای این نام یک کد یکتا بسازیم.\n"
+                "نام پایه دیگری انتخاب کنید.",
                 reply_markup=_back_kb(),
             )
             return
+        draft["username_base"] = base
         draft["username"] = username
         await _show_invoice(message, uid, draft)
         return

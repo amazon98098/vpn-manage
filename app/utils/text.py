@@ -15,6 +15,12 @@ def normalize(text: str | None) -> str:
     return text.translate(_DIGITS).translate(_LETTERS)
 
 
+# Create usernames get a short ``_XXXX`` suffix; base must leave room for it.
+CREATE_USERNAME_SUFFIX_CHARS = 5  # underscore + 4 digits
+CREATE_USERNAME_MAX = 32
+CREATE_USERNAME_BASE_MAX = CREATE_USERNAME_MAX - CREATE_USERNAME_SUFFIX_CHARS  # 27
+
+
 def sanitize_service_username(name: str | None) -> str | None:
     """Strip invisible RTL/LTR marks and validate VPN service usernames.
 
@@ -45,6 +51,27 @@ def sanitize_service_username(name: str | None) -> str | None:
     if raw.startswith("_") or raw.endswith("_"):
         return None
     return raw.lower()
+
+
+def sanitize_service_username_base(name: str | None) -> str | None:
+    """Validate the customer-chosen base name used before the unique ``_XXXX`` suffix.
+
+    Accepts 3–27 chars after cleanup. If the user pastes a previous unique name
+    ending in ``_dddd``, that short suffix is stripped so we allocate a fresh one.
+    """
+    raw = sanitize_service_username(name)
+    if not raw:
+        return None
+    m = re.fullmatch(r"(.+)_(\d{4})", raw)
+    if m and len(m.group(1)) >= 3 and not m.group(1).endswith("_"):
+        raw = m.group(1)
+    if len(raw) > CREATE_USERNAME_BASE_MAX:
+        raw = raw[:CREATE_USERNAME_BASE_MAX].rstrip("_")
+    if len(raw) < 3 or raw.startswith("_") or raw.endswith("_"):
+        return None
+    if not re.fullmatch(r"[a-z0-9_]{3,27}", raw):
+        return None
+    return raw
 
 
 def to_number(value: str | None) -> float | None:

@@ -469,15 +469,32 @@ async def _enqueue(
     owner_tg: str | None = None,
     plan_id: int | None = None,
 ) -> None:
-    from app.utils.text import sanitize_service_username
+    from app.utils.text import (
+        sanitize_service_username,
+        sanitize_service_username_base,
+    )
 
-    cleaned = sanitize_service_username(username)
-    if not cleaned:
-        await callback.answer(
-            "نام کاربری نامعتبر است (حروف انگلیسی/عدد/_)",
-            show_alert=True,
-        )
-        return
+    if kind == "create":
+        base = sanitize_service_username_base(username)
+        if not base:
+            await callback.answer(
+                "نام کاربری نامعتبر است (۳–۲۷ حرف/عدد/_)",
+                show_alert=True,
+            )
+            return
+        with get_session() as session:
+            cleaned = repo.allocate_unique_create_username(session, base, 0)
+        if not cleaned:
+            await callback.answer("نام یکتا ساخته نشد", show_alert=True)
+            return
+    else:
+        cleaned = sanitize_service_username(username)
+        if not cleaned:
+            await callback.answer(
+                "نام کاربری نامعتبر است (حروف انگلیسی/عدد/_)",
+                show_alert=True,
+            )
+            return
     username = cleaned
     with get_session() as session:
         sub = repo.get_subscription_by_username(session, username)

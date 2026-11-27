@@ -2329,6 +2329,35 @@ def renew_job_args_from_order(
     return "change", (cb or None)
 
 
+def allocate_unique_create_username(
+    session: Session,
+    base: str,
+    telegram_id: int,
+    *,
+    attempts: int = 48,
+) -> str | None:
+    """Build ``base_XXXX`` (4 random digits) that is free for create.
+
+    Keeps total length ≤ 32. Used for customer/admin/web create so common names
+    do not collide; FineArts/NetPlus receive the already-unique final name.
+    """
+    from secrets import randbelow
+
+    from app.utils.text import sanitize_service_username_base
+
+    cleaned = sanitize_service_username_base(base)
+    if not cleaned:
+        return None
+    for _ in range(max(1, int(attempts))):
+        candidate = f"{cleaned}_{randbelow(10000):04d}"
+        ok, _reason = is_username_available_for_create(
+            session, candidate, int(telegram_id or 0)
+        )
+        if ok:
+            return candidate
+    return None
+
+
 def is_username_available_for_create(
     session: Session, username: str, telegram_id: int
 ) -> tuple[bool, str]:
