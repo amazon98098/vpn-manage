@@ -217,6 +217,7 @@ ADMIN_INLINE_MENUS: dict[str, dict[str, Any]] = {
         "category": "settings",
         "items": [
             {"id": "channel", "label": "📢 عضویت اجباری کانال", "callback": "settings:channel"},
+            {"id": "broadcast", "label": "📣 پیام همگانی", "callback": "settings:broadcast"},
             {"id": "messages", "label": "📝 پیام‌های ربات", "callback": "settings:messages"},
             {"id": "education", "label": "📚 آموزش اتصال", "callback": "settings:education"},
             {"id": "maintenance", "label": "🛠 حالت تعمیر ربات مشتری", "callback": "settings:maintenance"},

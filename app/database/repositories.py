@@ -3018,6 +3018,32 @@ def list_customers_by_rate_tier(
     )
 
 
+def list_broadcast_recipient_ids(session: Session, audience: str) -> list[int]:
+    """Telegram ids for customer-bot broadcast. Skips tiny/test ids."""
+    aud = (audience or "all").strip().lower()
+    q = select(CustomerProfile.telegram_id).where(CustomerProfile.telegram_id >= 1000)
+    if aud in {"friends", "colleagues"}:
+        q = q.where(CustomerProfile.rate_tier == aud)
+    elif aud in {"with_service", "services", "owned"}:
+        owned = (
+            select(CustomerServiceLink.telegram_id)
+            .where(CustomerServiceLink.telegram_id.is_not(None))
+            .distinct()
+        )
+        q = q.where(CustomerProfile.telegram_id.in_(owned))
+    rows = list(session.scalars(q.order_by(CustomerProfile.id.asc())))
+    # Unique preserve order
+    seen: set[int] = set()
+    out: list[int] = []
+    for tid in rows:
+        n = int(tid)
+        if n in seen:
+            continue
+        seen.add(n)
+        out.append(n)
+    return out
+
+
 def sell_price_toman(plan: PricePlan | None, tier: str | None = "default") -> int:
     if plan is None:
         return 0

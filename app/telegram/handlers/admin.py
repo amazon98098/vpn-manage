@@ -3550,6 +3550,14 @@ async def on_receipt_photo(
 ) -> None:
     if not is_admin(message.from_user.id if message.from_user else None, settings):
         return
+    uid = message.from_user.id if message.from_user else 0
+    with get_session() as session:
+        flow = (repo.get_state(session, f"admin_flow:{uid}") or "").strip()
+    if flow.startswith("broadcast_compose:"):
+        from app.telegram.handlers.admin_broadcast import handle_broadcast_admin_photo
+
+        if await handle_broadcast_admin_photo(message, uid, flow):
+            return
     if await _try_save_education_media(message):
         return
     with get_session() as session:
@@ -3742,8 +3750,11 @@ async def text_router(message: Message, settings: Settings, renew_queue: RenewQu
         await message.answer(saved)
         return
 
+    from app.telegram.handlers.admin_broadcast import handle_broadcast_admin_text
     from app.telegram.handlers.admin_rates import handle_rates_admin_text
 
+    if await handle_broadcast_admin_text(message, uid, flow, query):
+        return
     if await handle_rates_admin_text(message, uid, flow, query):
         return
 

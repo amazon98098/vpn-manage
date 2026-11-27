@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ t('broadcast_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('broadcast_title') }}</h1>
+    <p>{{ t('broadcast_lead') }}</p>
+  </div>
+</div>
+{% if flash == 'queued' %}<div class="flash">{{ t('broadcast_queued') }}</div>{% endif %}
+{% if flash == 'busy' %}<div class="flash">{{ t('broadcast_busy') }}</div>{% endif %}
+{% if flash == 'empty' %}<div class="flash">{{ t('broadcast_empty') }}</div>{% endif %}
+{% if flash == 'cancelled' %}<div class="flash">{{ t('broadcast_cancel_ok') }}</div>{% endif %}
+{% if flash == 'fail' %}<div class="flash">{{ t('broadcast_fail') }}</div>{% endif %}
+
+<section class="panel">
+  <div class="toolbar"><strong>{{ t('broadcast_status') }}</strong></div>
+  <p class="muted">
+    {{ t('broadcast_state') }}: <b>{{ status.state or 'idle' }}</b>
+    {% if status.total is defined and status.total is not none %}
+      · {{ status.sent or 0 }}/{{ status.total }}
+      · {{ t('broadcast_failed') }} {{ status.failed or 0 }}
+      · {{ t('broadcast_skipped') }} {{ status.skipped or 0 }}
+    {% endif %}
+  </p>
+  {% if status.state == 'running' %}
+  <form method="post" action="/broadcast/cancel" style="display:inline">
+    <button class="btn danger small" type="submit">{{ t('broadcast_cancel') }}</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="toolbar"><strong>{{ t('broadcast_compose') }}</strong></div>
+  <form class="form-stack" method="post" action="/broadcast/send">
+    <label>{{ t('broadcast_audience') }}
+      <select name="audience">
+        {% for key, label, count in audiences %}
+        <option value="{{ key }}">{{ label }} ({{ count }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>{{ t('broadcast_body') }}
+      <textarea name="body" rows="8" maxlength="4000" required placeholder="{{ t('broadcast_body_ph') }}"></textarea>
+    </label>
+    <label class="chip check-row">
+      <input type="checkbox" name="confirm" value="1" required />
+      {{ t('broadcast_confirm') }}
+    </label>
+    <button class="btn" type="submit">{{ t('broadcast_send') }}</button>
+  </form>
+</section>
+{% endblock %}

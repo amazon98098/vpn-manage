@@ -2,13 +2,14 @@ from aiogram import Router
 
 from app.telegram.customer_maintenance import CustomerMaintenanceMiddleware
 
-from . import admin, admin_rates, customer, renew
+from . import admin, admin_broadcast, admin_rates, customer, renew
 
 
 def build_router() -> Router:
     root = Router()
     root.include_router(admin.router)
     root.include_router(admin_rates.router)
+    root.include_router(admin_broadcast.router)
     root.include_router(renew.router)
     return root
 

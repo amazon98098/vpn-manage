@@ -2296,6 +2296,82 @@ def create_app() -> FastAPI:
             ),
         )
 
+    @app.get("/broadcast", response_class=HTMLResponse)
+    async def broadcast_page(
+        request: Request, _auth: None = Depends(_require_auth)
+    ):
+        from app.services import broadcast as bc
+
+        with get_session() as session:
+            audiences = []
+            for key, fa_label in bc.AUDIENCE_LABELS.items():
+                count = len(repo.list_broadcast_recipient_ids(session, key))
+                label_key = {
+                    "all": "broadcast_aud_all",
+                    "with_service": "broadcast_aud_with_service",
+                    "friends": "broadcast_aud_friends",
+                    "colleagues": "broadcast_aud_colleagues",
+                }.get(key, key)
+                audiences.append(
+                    (key, translate(_lang(request), label_key) or fa_label, count)
+                )
+            status = bc.get_broadcast_status()
+        return TEMPLATES.TemplateResponse(
+            request,
+            "broadcast.html",
+            _ctx(
+                request,
+                "broadcast",
+                audiences=audiences,
+                status=status,
+                flash=request.query_params.get("ok"),
+            ),
+        )
+
+    @app.post("/broadcast/send")
+    async def broadcast_send(
+        request: Request,
+        audience: str = Form("all"),
+        body: str = Form(""),
+        confirm: str = Form(""),
+        _auth: None = Depends(_require_auth),
+    ):
+        from app.services import broadcast as bc
+        from app.telegram import customer_bridge
+
+        text = (body or "").strip()
+        if not text:
+            return RedirectResponse("/broadcast?ok=empty", status_code=303)
+        if confirm not in {"1", "on", "true", "yes"}:
+            return RedirectResponse("/broadcast?ok=fail", status_code=303)
+        if bc.is_broadcast_running():
+            return RedirectResponse("/broadcast?ok=busy", status_code=303)
+
+        async def _queue() -> dict:
+            return await bc.start_broadcast_background(
+                audience=audience,
+                text=text,
+                requested_by=0,
+            )
+
+        try:
+            result = await customer_bridge.run_on_bot_loop(_queue(), timeout=30.0)
+        except Exception:
+            return RedirectResponse("/broadcast?ok=fail", status_code=303)
+        if not result.get("ok"):
+            err = result.get("error") or "fail"
+            if err == "busy":
+                return RedirectResponse("/broadcast?ok=busy", status_code=303)
+            return RedirectResponse("/broadcast?ok=fail", status_code=303)
+        return RedirectResponse("/broadcast?ok=queued", status_code=303)
+
+    @app.post("/broadcast/cancel")
+    async def broadcast_cancel(_auth: None = Depends(_require_auth)):
+        from app.services import broadcast as bc
+
+        bc.request_broadcast_cancel()
+        return RedirectResponse("/broadcast?ok=cancelled", status_code=303)
+
     @app.post("/messages/{key}/save")
     async def messages_save(
         key: str,
