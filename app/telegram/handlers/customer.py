@@ -300,6 +300,25 @@ def _valid_username(name: str) -> str | None:
     return sanitize_service_username(name)
 
 
+def _username_taken_text(reason: str) -> str:
+    if reason == "taken_other":
+        return (
+            "❌ این نام کاربری متعلق به مشتری دیگری است.\n"
+            "نام دیگری انتخاب کنید."
+        )
+    if reason == "open_order":
+        return (
+            "❌ برای این نام کاربری سفارش باز وجود دارد.\n"
+            "نام دیگری انتخاب کنید یا صبر کنید سفارش قبلی تمام شود."
+        )
+    if reason == "taken_sub":
+        return (
+            "❌ این نام کاربری از قبل در سیستم ثبت شده است.\n"
+            "نام دیگری انتخاب کنید."
+        )
+    return "❌ این نام کاربری در دسترس نیست. نام دیگری انتخاب کنید."
+
+
 def _scrub_vendor_branding(text: str) -> str:
     """Never show the upstream vendor name to customers."""
     t = text or ""
@@ -1308,7 +1327,7 @@ async def _show_invoice(message: Message, uid: int, draft: dict, *, edit: bool =
             if not ok:
                 await _ui_show(
                     message,
-                    "❌ این نام کاربری در دسترس نیست. نام دیگری انتخاب کنید.",
+                    _username_taken_text(reason),
                     reply_markup=_back_kb(),
                     edit=edit,
                 )
@@ -3914,10 +3933,10 @@ async def text_flow(message: Message, settings: Settings) -> None:
             )
             return
         with get_session() as session:
-            ok, _reason = repo.is_username_available_for_create(session, username, uid)
+            ok, reason = repo.is_username_available_for_create(session, username, uid)
         if not ok:
             await message.answer(
-                "❌ این نام کاربری در دسترس نیست. نام دیگری انتخاب کنید.",
+                _username_taken_text(reason),
                 reply_markup=_back_kb(),
             )
             return

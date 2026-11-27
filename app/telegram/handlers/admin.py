@@ -1524,9 +1524,28 @@ async def cb_settings(callback: CallbackQuery, settings: Settings) -> None:
     if not is_admin(callback.from_user.id, settings):
         return
     await callback.message.edit_text(
-        "⚙️ <b>تنظیمات</b>\nیک بخش را انتخاب کنید:",
+        "⚙️ <b>تنظیمات</b>\n"
+        "یک گروه را انتخاب کنید — جزئیات داخل همان گروه است.",
         reply_markup=settings_menu(),
     )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("settings:hub:"))
+async def cb_settings_hub(callback: CallbackQuery, settings: Settings) -> None:
+    if not is_admin(callback.from_user.id, settings):
+        return
+    hub = (callback.data or "").rsplit(":", 1)[-1]
+    from app.telegram.menu_config import build_admin_inline_menu
+
+    titles = {
+        "shop": ("🛒 <b>فروش و قیمت‌ها</b>", "settings_shop"),
+        "pay": ("💳 <b>پرداخت و تایید</b>", "settings_pay"),
+        "customer": ("👥 <b>مشتری و کانال</b>", "settings_customer"),
+        "advanced": ("🛠 <b>پیشرفته</b>", "settings_advanced"),
+    }
+    title, menu_id = titles.get(hub, ("⚙️ تنظیمات", "settings"))
+    await callback.message.edit_text(title, reply_markup=build_admin_inline_menu(menu_id))
     await callback.answer()
 
 
