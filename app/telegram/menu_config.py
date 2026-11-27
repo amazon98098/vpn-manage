@@ -27,8 +27,13 @@ CUSTOMER_ACTIONS: dict[str, dict[str, Any]] = {
     },
     "wallet": {
         "fa_name": "کیف پول",
-        "label": "💰 کیف پول",
-        "aliases": ["💰 کیف پول", "🏦 کیف پول + شارژ"],
+        "label": "💰 کیف پول (افزایش موجودی)",
+        "aliases": [
+            "💰 کیف پول (افزایش موجودی)",
+            "💰 کیف پول",
+            "🏦 کیف پول + شارژ",
+            "کیف پول",
+        ],
     },
     "prices": {
         "fa_name": "تعرفه‌ها",
@@ -56,11 +61,13 @@ CUSTOMER_ACTIONS: dict[str, dict[str, Any]] = {
         "fa_name": "مخفی کردن منو",
         "label": "⬇️ مخفی کردن منو",
         "aliases": ["⬇️ مخفی کردن منو", "مخفی کردن منو", "⬇️ منو"],
+        "enabled": False,
     },
     "show_menu": {
         "fa_name": "نمایش منو",
         "label": "⬆️ نمایش منو",
         "aliases": ["⬆️ نمایش منو", "نمایش منو", "⬆️ منو"],
+        "enabled": False,
     },
 }
 
@@ -69,7 +76,6 @@ DEFAULT_CUSTOMER_LAYOUT: list[list[str]] = [
     ["wallet", "prices"],
     ["guide", "support"],
     # "referral" stays off until explicitly enabled in layout/settings.
-    ["hide_menu"],
 ]
 
 # ─── Customer support submenu (reply keyboard) ────────────────────────────────
@@ -241,7 +247,7 @@ CUSTOMER_INLINE_MENUS: dict[str, dict[str, Any]] = {
         "items": [
             {"id": "buy", "label": "🛒 خرید اشتراک", "callback": "cust:go:buy"},
             {"id": "mine", "label": "🛍 سرویس های من", "callback": "cust:go:mine"},
-            {"id": "wallet", "label": "💰 کیف پول", "callback": "cust:go:wallet"},
+            {"id": "wallet", "label": "💰 کیف پول (افزایش موجودی)", "callback": "cust:go:wallet"},
             {"id": "prices", "label": "💵 تعرفه‌ها", "callback": "cust:go:prices"},
             {"id": "guide", "label": "📚 آموزش", "callback": "cust:go:guide"},
             {"id": "support", "label": "💬 پشتیبانی", "callback": "cust:go:support"},
@@ -320,9 +326,16 @@ def _load_layout(state_key: str, default: list[list[str]]) -> list[list[str]]:
     if not isinstance(data, list) or not data:
         return [list(row) for row in default]
     out: list[list[str]] = []
+    skip = {"hide_menu", "show_menu"} if state_key == STATE_CUSTOMER_LAYOUT else set()
     for row in data:
         if isinstance(row, list) and row:
-            out.append([str(x).strip() for x in row if str(x).strip()])
+            cleaned = [
+                str(x).strip()
+                for x in row
+                if str(x).strip() and str(x).strip() not in skip
+            ]
+            if cleaned:
+                out.append(cleaned)
     return out or [list(row) for row in default]
 
 

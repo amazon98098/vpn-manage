@@ -3342,12 +3342,28 @@ async def customer_order_manual_done(
         uname = order.service_username
         cust_tg = order.telegram_id
         sub = repo.get_subscription_by_username(session, uname)
+        # Prefer the inventory row that already has vendor data (URL/expiry).
+        if sub and not (sub.subscription_url or "").strip():
+            richer = repo.get_subscription_by_username(session, uname)
+            if richer and (richer.subscription_url or "").strip():
+                sub = richer
+        if sub:
+            uname = sub.username
+            order.service_username = uname
+            repo.merge_username_case_duplicates(
+                session, keep=sub, canonical_username=uname
+            )
         sub_pk = sub.id if sub else None
+        already_ready = bool(sub and (sub.subscription_url or "").strip())
         if not job_id:
             order.status = "done"
             order.completed_at = datetime.utcnow()
             order.note = (order.note or "") + "|manual_admin_complete"
             repo.touch_customer_order(order)
+        # If vendor already finished (create_ok) but job id was lost / case-mismatched,
+        # do not invent a second empty inventory row — just notify the customer.
+        if already_ready and not job_id:
+            job_id = None
     if job_id:
         result = await renew_queue.mark_manual_complete(job_id)
         await safe_answer(
@@ -3374,6 +3390,8 @@ async def customer_order_manual_done(
                 sub = repo.get_subscription_by_username(session, uname)
                 url = (sub.subscription_url or "").strip() if sub else ""
                 sid = sub.id if sub else sub_pk
+                if sub:
+                    uname = sub.username
             await customer_bridge.renew_queue._notify_customer_final(
                 telegram_id=cust_tg,
                 username=uname,

@@ -681,25 +681,6 @@ async def cmd_menu(message: Message) -> None:
     await _show_customer_home(message, edit=False)
 
 
-@router.message(F.text.func(lambda t: bool(t) and t in _cust_labels("hide_menu")))
-async def hide_main_menu(message: Message) -> None:
-    """NetPlus-style: collapse main menu to a single expand button (keyboard stays)."""
-    from app.telegram.menu_config import collapsed_customer_menu
-
-    _track(message)
-    await message.answer(
-        "منوی اصلی جمع شد. برای باز کردن دوباره «⬆️ نمایش منو» را بزنید.",
-        reply_markup=collapsed_customer_menu(),
-    )
-
-
-@router.message(F.text.func(lambda t: bool(t) and t in _cust_labels("show_menu")))
-async def show_main_menu(message: Message) -> None:
-    """Expand the collapsed reply keyboard back to the full customer menu."""
-    _track(message)
-    await message.answer("منوی اصلی باز شد.", reply_markup=customer_menu())
-
-
 @router.message(F.text.func(lambda t: bool(t) and t in _cust_labels("referral")))
 async def referral_menu_stub(message: Message) -> None:
     """Reserved main-menu item; disabled in default layout until launched."""
@@ -1465,11 +1446,17 @@ async def _execute_shop_pay(
             repo.set_order_payable_amount(order, session)
             remain = repo.order_payable_toman(order)
             oid = order.id
+            manual_gate = False
             if remain <= 0:
                 order.status = "awaiting_review"
                 order.paid_at = datetime.utcnow()
                 order.pay_source = "wallet"
                 order.amount_rial = "0"
+                if kind != "wallet" and repo.is_orders_manual_approval(session):
+                    order.note = (order.note or "") + "|manual_approval"
+                    manual_gate = True
+                else:
+                    order.note = (order.note or "") + "|ready_fulfill"
                 repo.touch_customer_order(order)
                 full_wallet = True
             else:
@@ -1482,6 +1469,25 @@ async def _execute_shop_pay(
         if callback.message:
             _track_order_ui_message(oid, callback.message.message_id)
         if full_wallet:
+            if manual_gate:
+                sent = await callback.message.answer(
+                    f"✅ مبلغ کامل از کیف پول پرداخت شد ({price:,} تومان).\n"
+                    "پرداخت برای تایید ادمین ارسال شد.",
+                    reply_markup=customer_menu(),
+                )
+                _track_order_ui_message(oid, sent.message_id if sent else None)
+                from app.services.customer_payments import _notify_manual_approval
+
+                await _notify_manual_approval(
+                    oid=oid,
+                    tg=uid,
+                    uname=username,
+                    kind=kind,
+                    price=price,
+                    amount_show="0",
+                    source="wallet",
+                )
+                return
             sent = await callback.message.answer(
                 f"✅ مبلغ کامل از کیف پول پرداخت شد ({price:,} تومان).\n"
                 "در حال آماده‌سازی سرویس…",

@@ -244,7 +244,7 @@ def apply_status_snapshot(
     session: Session, vendor_id: int, data: dict[str, Any]
 ) -> Subscription | None:
     """Update subscription fields from a vendor status refresh dict."""
-    username = (data.get("username") or "").strip()
+    username = (data.get("username") or "").strip().lstrip("\u200e").lstrip("\u200f")
     if not username:
         return None
     sub = session.scalar(
@@ -254,12 +254,25 @@ def apply_status_snapshot(
         )
     )
     if not sub:
+        sub = session.scalar(
+            select(Subscription)
+            .where(
+                Subscription.vendor_id == vendor_id,
+                func.lower(Subscription.username) == username.lower(),
+            )
+            .order_by(Subscription.id.desc())
+        )
+    if not sub:
         sub = Subscription(
             vendor_id=vendor_id,
             username=username,
             created_at=datetime.utcnow(),
         )
         session.add(sub)
+    elif sub.username != username:
+        sub = merge_username_case_duplicates(
+            session, keep=sub, canonical_username=username
+        )
     if data.get("vendor_service_id"):
         sub.vendor_service_id = str(data["vendor_service_id"])
     local_product = None
@@ -305,7 +318,7 @@ def upsert_subscription_from_alert(
     parsed: dict[str, Any],
     received_at: datetime,
 ) -> Subscription | None:
-    username = parsed.get("username")
+    username = (parsed.get("username") or "").strip().lstrip("\u200e").lstrip("\u200f")
     if not username:
         return None
     sub = session.scalar(
@@ -315,12 +328,33 @@ def upsert_subscription_from_alert(
         )
     )
     if not sub:
+        sub = session.scalar(
+            select(Subscription)
+            .where(
+                Subscription.vendor_id == vendor.id,
+                func.lower(Subscription.username) == username.lower(),
+            )
+            .order_by(Subscription.id.desc())
+        )
+    if not sub:
+        # Also catch rows that lost vendor_id but share the username (case-insensitive).
+        sub = get_subscription_by_username(session, username)
+        if sub and sub.vendor_id and sub.vendor_id != vendor.id:
+            sub = None
+    if not sub:
         sub = Subscription(
             vendor_id=vendor.id,
             username=username,
             created_at=datetime.utcnow(),
         )
         session.add(sub)
+    else:
+        if sub.vendor_id != vendor.id:
+            sub.vendor_id = vendor.id
+        if sub.username != username:
+            sub = merge_username_case_duplicates(
+                session, keep=sub, canonical_username=username
+            )
 
     if parsed.get("vendor_service_id"):
         sub.vendor_service_id = parsed["vendor_service_id"]
@@ -1397,15 +1431,30 @@ def upsert_customer_profile(
 
 def link_customer_service(session: Session, telegram_id: int, service_username: str) -> CustomerServiceLink:
     uname = service_username.strip()
+    key = username_key(uname)
     row = session.scalar(
         select(CustomerServiceLink).where(
             CustomerServiceLink.telegram_id == telegram_id,
-            CustomerServiceLink.service_username == uname,
+            func.lower(CustomerServiceLink.service_username) == key,
         )
     )
     if row:
+        # Keep link username aligned with the inventory / vendor casing.
+        if row.service_username != uname:
+            row.service_username = uname
+        sub = get_subscription_by_username(session, uname)
+        if sub:
+            row.subscription_id = sub.id
+            if sub.vendor_id:
+                row.vendor_id = sub.vendor_id
+        session.flush()
         return row
     row = CustomerServiceLink(telegram_id=telegram_id, service_username=uname)
+    sub = get_subscription_by_username(session, uname)
+    if sub:
+        row.subscription_id = sub.id
+        if sub.vendor_id:
+            row.vendor_id = sub.vendor_id
     session.add(row)
     session.flush()
     return row
@@ -1464,12 +1513,12 @@ def find_usable_subscription_by_username(
     if not name:
         return None
     q = select(Subscription).where(
-        Subscription.username == name,
+        func.lower(Subscription.username) == name.lower(),
         Subscription.status.in_(tuple(USABLE_SUBSCRIPTION_STATUSES)),
     )
     if exclude_subscription_id is not None:
         q = q.where(Subscription.id != exclude_subscription_id)
-    return session.scalar(q.limit(1))
+    return session.scalar(q.order_by(Subscription.id.desc()).limit(1))
 
 
 def is_usable_username_available(
@@ -1499,9 +1548,17 @@ def get_link_for_username(
     uname = (service_username or "").strip()
     if not uname:
         return None
-    return session.scalar(
+    exact = session.scalar(
         select(CustomerServiceLink)
         .where(CustomerServiceLink.service_username == uname)
+        .order_by(CustomerServiceLink.id.desc())
+        .limit(1)
+    )
+    if exact:
+        return exact
+    return session.scalar(
+        select(CustomerServiceLink)
+        .where(func.lower(CustomerServiceLink.service_username) == uname.lower())
         .order_by(CustomerServiceLink.id.desc())
         .limit(1)
     )
@@ -2268,12 +2325,13 @@ def is_username_available_for_create(
     name = (username or "").strip()
     if not name:
         return False, "invalid"
+    key = username_key(name)
     # Global usable inventory occupancy (any vendor); removed/deleted do not block.
     if not is_usable_username_available(session, name):
         return False, "taken_sub"
     link = session.scalar(
         select(CustomerServiceLink).where(
-            CustomerServiceLink.service_username == name
+            func.lower(CustomerServiceLink.service_username) == key
         )
     )
     if link and link.telegram_id != telegram_id:
@@ -2281,7 +2339,7 @@ def is_username_available_for_create(
     open_order = session.scalar(
         select(CustomerOrder)
         .where(
-            CustomerOrder.service_username == name,
+            func.lower(CustomerOrder.service_username) == key,
             CustomerOrder.kind == "create",
             CustomerOrder.status.in_(
                 (
@@ -2487,10 +2545,11 @@ def find_customer_order_for_job(
     name = (username or "").strip()
     if not name:
         return None
+    key = username_key(name)
     order = session.scalar(
         select(CustomerOrder)
         .where(
-            CustomerOrder.service_username == name,
+            func.lower(CustomerOrder.service_username) == key,
             CustomerOrder.kind.in_(("renew", "create")),
             CustomerOrder.status.in_(("fulfilling", "approved", "awaiting_review")),
         )
@@ -2498,8 +2557,10 @@ def find_customer_order_for_job(
         .limit(1)
     )
     if order:
-        # Relink so later events hit the new job id.
+        # Relink so later events hit the new job id; normalize casing to vendor form.
         order.renew_job_id = renew_job_id
+        if order.service_username != name:
+            order.service_username = name
         touch_customer_order(order)
     return order
 
@@ -3490,16 +3551,104 @@ def get_subscription(session: Session, subscription_id: int) -> Subscription | N
     return session.get(Subscription, subscription_id)
 
 
+def username_key(username: str | None) -> str:
+    """Case-insensitive compare key for VPN usernames (NetPlus may change casing)."""
+    return (username or "").strip().lstrip("\u200e").lstrip("\u200f").lower()
+
+
 def get_subscription_by_username(session: Session, username: str) -> Subscription | None:
-    """Exact username match (not ILIKE). Newest row if historical duplicates exist."""
-    name = (username or "").strip()
+    """Case-insensitive username match. Prefer exact casing, else newest row."""
+    name = (username or "").strip().lstrip("\u200e").lstrip("\u200f")
     if not name:
         return None
-    return session.scalar(
+    exact = session.scalar(
         select(Subscription)
         .where(Subscription.username == name)
         .order_by(Subscription.id.desc())
     )
+    if exact:
+        return exact
+    key = name.lower()
+    rows = list(
+        session.scalars(
+            select(Subscription)
+            .where(func.lower(Subscription.username) == key)
+            .order_by(Subscription.id.desc())
+            .limit(5)
+        )
+    )
+    if not rows:
+        return None
+    # Prefer the row that already has URL / expiry / traffic (real vendor data).
+    for row in rows:
+        if (row.subscription_url or "").strip() or row.expiration_date is not None:
+            return row
+    return rows[0]
+
+
+def merge_username_case_duplicates(
+    session: Session, *, keep: Subscription, canonical_username: str | None = None
+) -> Subscription:
+    """Fold case-only duplicate inventory rows into ``keep`` and retarget links/orders."""
+    canon = (canonical_username or keep.username or "").strip()
+    if not canon:
+        return keep
+    key = username_key(canon)
+    others = list(
+        session.scalars(
+            select(Subscription).where(
+                func.lower(Subscription.username) == key,
+                Subscription.id != keep.id,
+            )
+        )
+    )
+    if canon != keep.username:
+        keep.username = canon
+    for other in others:
+        # Copy missing useful fields from the duplicate onto keep.
+        if not keep.subscription_url and other.subscription_url:
+            keep.subscription_url = other.subscription_url
+        if keep.expiration_date is None and other.expiration_date is not None:
+            keep.expiration_date = other.expiration_date
+        if keep.traffic_limit_mb is None and other.traffic_limit_mb is not None:
+            keep.traffic_limit_mb = other.traffic_limit_mb
+        if keep.remaining_traffic_mb is None and other.remaining_traffic_mb is not None:
+            keep.remaining_traffic_mb = other.remaining_traffic_mb
+        if keep.used_traffic_mb is None and other.used_traffic_mb is not None:
+            keep.used_traffic_mb = other.used_traffic_mb
+        if not keep.vendor_service_id and other.vendor_service_id:
+            keep.vendor_service_id = other.vendor_service_id
+        if not keep.product_name and other.product_name:
+            keep.product_name = other.product_name
+        # Retarget ownership links.
+        for link in list(
+            session.scalars(
+                select(CustomerServiceLink).where(
+                    or_(
+                        CustomerServiceLink.subscription_id == other.id,
+                        func.lower(CustomerServiceLink.service_username)
+                        == key,
+                    )
+                )
+            )
+        ):
+            link.subscription_id = keep.id
+            link.service_username = canon
+            if keep.vendor_id:
+                link.vendor_id = keep.vendor_id
+        for order in list(
+            session.scalars(
+                select(CustomerOrder).where(
+                    func.lower(CustomerOrder.service_username) == key
+                )
+            )
+        ):
+            order.service_username = canon
+        # Soft-remove the duplicate shell so it no longer appears in inventory.
+        other.status = "removed"
+        other.username = f"{other.username}__dup{other.id}"
+    session.flush()
+    return keep
 
 
 def set_subscription_product_from_plan(
@@ -3791,10 +3940,11 @@ def cancel_open_renew_jobs_for_username(
     """Cancel leftover payment waits for the same username so a new renew cannot reuse them."""
     if not username:
         return 0
+    key = username_key(username)
     rows = list(
         session.scalars(
             select(RenewJob).where(
-                RenewJob.username == username,
+                func.lower(RenewJob.username) == key,
                 RenewJob.status.in_(
                     (
                         "awaiting_payment",
@@ -3851,18 +4001,20 @@ _PENDING_RENEW_STATUSES = (
 
 
 def match_pending_renew_by_username(session: Session, username: str | None) -> RenewJob | None:
-    """Match open renew/create job by vendor username.
+    """Match open renew/create job by vendor username (case-insensitive).
 
     FineArts create often returns ``requested_digits`` (e.g. roodaki_mom_9021682)
     while the queue job still holds the requested base name (roodaki_mom).
+    NetPlus may also return a different letter-case than the customer typed.
     """
     want = (username or "").strip().lstrip("\u200e").lstrip("\u200f")
     if not want:
         return None
+    want_key = want.lower()
     job = session.scalar(
         select(RenewJob)
         .where(
-            RenewJob.username == want,
+            func.lower(RenewJob.username) == want_key,
             RenewJob.status.in_(_PENDING_RENEW_STATUSES),
         )
         .order_by(RenewJob.id.desc())
@@ -3889,10 +4041,10 @@ def match_pending_renew_by_username(session: Session, username: str | None) -> R
         base = (cand.username or "").strip().lstrip("\u200e").lstrip("\u200f")
         if not base or len(base) < 3:
             continue
-        if want == base:
+        if want_key == base.lower():
             return cand
-        if want.startswith(base + "_"):
-            suffix = want[len(base) + 1 :]
+        if want_key.startswith(base.lower() + "_"):
+            suffix = want_key[len(base) + 1 :]
             if suffix.isdigit() and len(base) > best_len:
                 best = cand
                 best_len = len(base)
@@ -3903,7 +4055,7 @@ def match_pending_renew_by_username(session: Session, username: str | None) -> R
     recent_fail = session.scalar(
         select(RenewJob)
         .where(
-            RenewJob.username == want,
+            func.lower(RenewJob.username) == want_key,
             RenewJob.status == "failed",
             RenewJob.kind.in_(("renew", "create")),
         )

@@ -357,7 +357,7 @@ async def _notify_manual_approval(
     amount_show: str,
     source: str,
 ) -> None:
-    """Ping admins that a paid order needs explicit approve/reject."""
+    """Push paid-order approve/reject directly into admin bot chat (not only Requests)."""
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
     kind_fa = _kind_fa(kind)
@@ -367,8 +367,8 @@ async def _notify_manual_approval(
         f"یوزر: <code>{uname}</code>\n"
         f"مبلغ: {price:,} ت / <code>{amount_show}</code> ریال\n"
         f"منبع: {source}\n"
-        f"مشتری: <code>{tg}</code>\n"
-        f"نیاز به واکنش ادمین: تایید یا رد"
+        f"مشتری: <code>{tg}</code>\n\n"
+        "همین‌جا تایید یا رد کنید — نیازی به رفتن به زیرمنوی درخواست‌ها نیست."
     )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -389,18 +389,24 @@ async def _notify_manual_approval(
     from app.config import load_settings
 
     settings = load_settings(require_bot=True)
-    for admin_id in settings.admin_ids:
-        try:
-            sent = await customer_bridge.admin_bot.send_message(
-                admin_id, text, reply_markup=kb
-            )
-            if oid and sent and getattr(sent, "message_id", None):
-                with get_session() as session:
+    # Prefer the shared bridge helper so every admin gets a chat ping.
+    try:
+        sent_list = await customer_bridge.notify_admins_action_required(
+            settings.admin_ids, text, reply_markup=kb
+        )
+    except Exception:
+        log.exception("manual approval admin notify failed")
+        sent_list = []
+    if oid:
+        with get_session() as session:
+            for sent in sent_list or []:
+                mid = getattr(sent, "message_id", None)
+                chat = getattr(sent, "chat", None)
+                chat_id = getattr(chat, "id", None) if chat else None
+                if mid and chat_id:
                     repo.track_admin_order_ui_message(
-                        session, oid, admin_id, int(sent.message_id)
+                        session, oid, int(chat_id), int(mid)
                     )
-        except Exception:
-            log.exception("manual approval admin notify failed")
 
 
 async def _notify_after_confirm(

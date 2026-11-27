@@ -900,6 +900,12 @@ class RenewQueue:
                     job.username = actual
                     repo.touch_renew_job(job)
             payload["username"] = uname
+            # Fold case-only duplicates (Maryam_X vs maryam_x) into one inventory row.
+            existing = repo.get_subscription_by_username(session, uname)
+            if existing is not None:
+                repo.merge_username_case_duplicates(
+                    session, keep=existing, canonical_username=uname
+                )
             # Prefer structured URL from parser; else scrape status_text / raw.
             url_from_parsed = (payload.get("subscription_url") or "").strip()
             if not url_from_parsed:
