@@ -2336,10 +2336,12 @@ def allocate_unique_create_username(
     *,
     attempts: int = 48,
 ) -> str | None:
-    """Build ``base_XXXX`` (4 random digits) that is free for create.
+    """Build ``base_XXXX`` (4 random digits) that is free for **create only**.
 
-    Keeps total length ≤ 32. Used for customer/admin/web create so common names
-    do not collide; FineArts/NetPlus receive the already-unique final name.
+    Never call this for renew — existing inventory usernames must stay unchanged
+    so vendor renew can open the same service.
+    Keeps total length ≤ 32. Customer/admin/web create use this so common names
+    do not collide; vendors receive the already-unique final name.
     """
     from secrets import randbelow
 

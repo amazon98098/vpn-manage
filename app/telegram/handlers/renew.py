@@ -24,12 +24,20 @@ def _mode_keyboard(
     vendor_key: str | None = None,
 ) -> InlineKeyboardMarkup:
     u = username[:40]
-    back = f"subinfo:id:{sub_id}" if sub_id is not None else f"subinfo:{u}"
+    # Prefer subscription id in callbacks so long FineArts names are never truncated.
+    if sub_id is not None:
+        current_cb = f"renew:mode:current:id:{int(sub_id)}"
+        change_cb = f"renew:mode:change:id:{int(sub_id)}"
+        back = f"subinfo:id:{int(sub_id)}"
+    else:
+        current_cb = f"renew:mode:current:{u}"
+        change_cb = f"renew:mode:change:{u}"
+        back = f"subinfo:{u}"
     rows: list[list[InlineKeyboardButton]] = [
         [
             InlineKeyboardButton(
                 text="♻️ تمدید پلن فعلی",
-                callback_data=f"renew:mode:current:{u}",
+                callback_data=current_cb,
             )
         ]
     ]
@@ -39,7 +47,7 @@ def _mode_keyboard(
             [
                 InlineKeyboardButton(
                     text="📦 تغییر پلن / حجم",
-                    callback_data=f"renew:mode:change:{u}",
+                    callback_data=change_cb,
                 )
             ]
         )
@@ -231,13 +239,40 @@ async def cb_renew_ask(callback: CallbackQuery, settings: Settings) -> None:
     await callback.answer()
 
 
+def _username_from_renew_mode_callback(data: str) -> tuple[str | None, int | None]:
+    """Parse renew:mode:current:… / renew:mode:change:… → (username, sub_id)."""
+    parts = (data or "").split(":")
+    # renew:mode:current:id:123  or renew:mode:current:username
+    if len(parts) >= 5 and parts[3] == "id":
+        try:
+            sub_id = int(parts[4])
+        except ValueError:
+            return None, None
+        with get_session() as session:
+            sub = repo.get_subscription(session, sub_id)
+            if not sub:
+                return None, sub_id
+            return sub.username, sub.id
+    username = parts[3] if len(parts) > 3 else ""
+    if not username:
+        return None, None
+    with get_session() as session:
+        sub = repo.get_subscription_by_username(session, username)
+        if sub:
+            return sub.username, sub.id
+    return username, None
+
+
 @router.callback_query(F.data.startswith("renew:mode:current:"))
 async def cb_mode_current(
     callback: CallbackQuery, settings: Settings, renew_queue: RenewQueue
 ) -> None:
     if not is_admin(callback.from_user.id, settings):
         return
-    username = (callback.data or "").split(":", 3)[3]
+    username, _sub_id = _username_from_renew_mode_callback(callback.data or "")
+    if not username:
+        await callback.answer("اشتراک یافت نشد", show_alert=True)
+        return
     await _enqueue(
         callback, renew_queue, username, "current", None, kind="renew"
     )
@@ -247,13 +282,10 @@ async def cb_mode_current(
 async def cb_mode_change(callback: CallbackQuery, settings: Settings) -> None:
     if not is_admin(callback.from_user.id, settings):
         return
-    username = (callback.data or "").split(":", 3)[3]
-    sub_id = None
-    with get_session() as session:
-        sub = repo.get_subscription_by_username(session, username)
-        if sub:
-            sub_id = sub.id
-            username = sub.username
+    username, sub_id = _username_from_renew_mode_callback(callback.data or "")
+    if not username:
+        await callback.answer("اشتراک یافت نشد", show_alert=True)
+        return
     await _ui_edit(
         callback.message,
         f"مدت تمدید برای <code>{username}</code> را انتخاب کنید:",
@@ -474,7 +506,8 @@ async def _enqueue(
         sanitize_service_username_base,
     )
 
-    if kind == "create":
+    # Unique _XXXX suffix is CREATE-only. Renew must keep the exact inventory name.
+    if (kind or "").strip().lower() == "create":
         base = sanitize_service_username_base(username)
         if not base:
             await callback.answer(
@@ -487,6 +520,7 @@ async def _enqueue(
         if not cleaned:
             await callback.answer("نام یکتا ساخته نشد", show_alert=True)
             return
+        username = cleaned
     else:
         cleaned = sanitize_service_username(username)
         if not cleaned:
@@ -495,9 +529,12 @@ async def _enqueue(
                 show_alert=True,
             )
             return
-    username = cleaned
+        username = cleaned
     with get_session() as session:
         sub = repo.get_subscription_by_username(session, username)
+        # Prefer the stored inventory spelling/casing for renew jobs.
+        if sub and (kind or "").strip().lower() != "create":
+            username = sub.username
         want = repo.username_key(username)
         active = [
             j

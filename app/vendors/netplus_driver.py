@@ -118,28 +118,38 @@ def _button_username(text: str | None) -> str:
     return t.strip()
 
 
+def _norm_user_token(value: str | None) -> str:
+    t = (value or "").strip().lstrip("\u200e").lstrip("\u200f").lower()
+    for ch in ("\u200e", "\u200f", "\u200b", "\u200c", "\ufeff"):
+        t = t.replace(ch, "")
+    return t.strip()
+
+
 def find_product_callback_for_username(
     msg: Message | None, username: str, *, service_id: str | None = None
 ) -> str | None:
-    """Resolve product_ callback by exact username only (never NetPlus id / substring).
+    """Resolve product_ callback: exact username label, then exact vendor service id.
 
-    ``service_id`` is ignored — usernames are unique enough; id matching caused
-    wrong-service opens for similarly named accounts.
+    Username match is preferred. Service-id match is only the full ``product_<id>``
+    callback (not a substring), so sibling accounts are not opened by accident.
     """
-    _ = service_id
     if not msg:
         return None
-    want = (username or "").strip().lower()
-    if not want:
-        return None
+    want = _norm_user_token(username)
+    sid = _norm_user_token(service_id)
+    username_hit: str | None = None
+    sid_hit: str | None = None
     for b in flat_buttons(msg):
-        d = b.get("callback_data") or ""
+        d = (b.get("callback_data") or "").strip()
         if not d.startswith("product_"):
             continue
-        label = _button_username(b.get("text")).lower()
-        if label == want:
-            return d
-    return None
+        label = _norm_user_token(_button_username(b.get("text")))
+        if want and label == want:
+            username_hit = d
+            break
+        if sid and d == f"product_{sid}":
+            sid_hit = d
+    return username_hit or sid_hit
 
 
 def is_payment(msg: Message | None) -> bool:
@@ -631,6 +641,12 @@ class NetPlusRenewDriver:
             msg = await self.send_text(username)
             _mark("type_username", s)
 
+        if msg:
+            # Search results often edit in place a moment later.
+            s = time.monotonic()
+            msg = await self._await_stable(msg, timeout=2.5) or msg
+            _mark("await_search_stable", s)
+
         if not msg:
             log.info(
                 "TIMING open_status %s FAIL total=%.2fs steps=%s",
@@ -640,8 +656,7 @@ class NetPlusRenewDriver:
             )
             return None
 
-        # Prefer exact product match (by service_id / exact username) over a
-        # status card that may belong to a similarly named sibling service.
+        # Prefer exact product match (username label, else product_<service_id>).
         product_cb = find_product_callback_for_username(
             msg, username, service_id=service_id
         )
@@ -649,6 +664,8 @@ class NetPlusRenewDriver:
             s = time.monotonic()
             opened = await self.click_data(msg, product_cb)
             _mark("click_product_exact", s)
+            if opened:
+                opened = await self._await_stable(opened, timeout=1.5) or opened
             log.info(
                 "TIMING open_status %s via exact product total=%.2fs steps=%s",
                 username,
@@ -666,11 +683,22 @@ class NetPlusRenewDriver:
             )
             return msg
 
+        # Help diagnose renew misses (often mistaken for a create walk).
+        preview = [
+            (
+                (b.get("text") or "")[:48],
+                (b.get("callback_data") or "")[:40],
+            )
+            for b in flat_buttons(msg)[:12]
+        ]
         log.info(
-            "TIMING open_status %s end total=%.2fs steps=%s",
+            "TIMING open_status %s miss sid=%s total=%.2fs steps=%s buttons=%s text=%r",
             username,
+            service_id,
             time.monotonic() - t0,
             timings,
+            preview,
+            (msg.message or "")[:180],
         )
         return None
 
@@ -1127,7 +1155,15 @@ class NetPlusRenewDriver:
                         time.monotonic() - drive_t0,
                         timings,
                     )
-                    return DriveResult(False, "no_extend", error="FAIL_NO_EXTEND")
+                    # Keep kind=renew semantics clear for admins (not a create attempt).
+                    return DriveResult(
+                        False,
+                        "no_extend",
+                        error=(
+                            "FAIL_NO_EXTEND "
+                            "(تمدید: سرویس در فروشنده باز نشد / دکمه تمدید نبود)"
+                        ),
+                    )
 
                 extend = (
                     f"extend_{service_id}"
