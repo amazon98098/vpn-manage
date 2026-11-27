@@ -1104,6 +1104,7 @@ class NetPlusRenewDriver:
         duration_callback: str | None = None,
         package_callback: str | None = None,
     ) -> DriveResult:
+        username = (username or "").strip().lower()
         async with self.lock:
             drive_t0 = time.monotonic()
             timings: list[tuple[str, float]] = []
@@ -1254,6 +1255,7 @@ class NetPlusRenewDriver:
         duration_callback: str | None,
         package_callback: str | None,
     ) -> DriveResult:
+        username = (username or "").strip().lower()
         async with self.lock:
             try:
                 entity = await self.ensure_entity()

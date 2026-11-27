@@ -1908,12 +1908,12 @@ async def svc_open(callback: CallbackQuery) -> None:
 
 
 def _owns_service(uid: int, username: str) -> bool:
-    name = (username or "").strip()
+    name = repo.username_key(username)
     if not name:
         return False
     with get_session() as session:
         links = repo.list_customer_services(session, uid)
-        return any(l.service_username == name for l in links)
+        return any(repo.username_key(l.service_username) == name for l in links)
 
 
 def _owned_username_for_sub_id(uid: int, subscription_id: int) -> str | None:

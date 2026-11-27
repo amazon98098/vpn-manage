@@ -18,7 +18,9 @@ def normalize(text: str | None) -> str:
 def sanitize_service_username(name: str | None) -> str | None:
     """Strip invisible RTL/LTR marks and validate VPN service usernames.
 
-    Returns cleaned username or None if invalid.
+    Returns cleaned lowercase username or None if invalid.
+    Vendors (NetPlus and others) treat usernames case-insensitively and often
+    store them lowercase — we always normalize before create/renew/send.
     Rules: 3–32 chars, [A-Za-z0-9_], no leading/trailing underscore.
     """
     raw = normalize(name).strip().lstrip("@")
@@ -42,7 +44,7 @@ def sanitize_service_username(name: str | None) -> str | None:
         return None
     if raw.startswith("_") or raw.endswith("_"):
         return None
-    return raw
+    return raw.lower()
 
 
 def to_number(value: str | None) -> float | None:

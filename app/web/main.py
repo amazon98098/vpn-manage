@@ -616,8 +616,10 @@ def create_app() -> FastAPI:
         return customer_bridge.wake_renew_queue()
 
     def _username_busy(session, username: str) -> bool:
+        key = repo.username_key(username)
         return any(
-            j.username == username for j in repo.list_active_renew_jobs(session, limit=500)
+            repo.username_key(j.username) == key
+            for j in repo.list_active_renew_jobs(session, limit=500)
         )
 
     def _plan_cards(session, plans: list) -> list[dict[str, Any]]:
@@ -743,8 +745,10 @@ def create_app() -> FastAPI:
         owner_tg: str = Form(""),
         _auth: None = Depends(_require_auth),
     ):
-        uname = (username or "").strip()
-        if not uname or len(uname) < 3:
+        from app.utils.text import sanitize_service_username
+
+        uname = sanitize_service_username(username) or ""
+        if not uname:
             return RedirectResponse("/services/create?err=username", status_code=303)
         with get_session() as session:
             plan = repo.get_price_plan(session, int(plan_id or 0))

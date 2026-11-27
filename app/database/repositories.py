@@ -244,7 +244,9 @@ def apply_status_snapshot(
     session: Session, vendor_id: int, data: dict[str, Any]
 ) -> Subscription | None:
     """Update subscription fields from a vendor status refresh dict."""
-    username = (data.get("username") or "").strip().lstrip("\u200e").lstrip("\u200f")
+    username = username_key(
+        (data.get("username") or "").strip().lstrip("\u200e").lstrip("\u200f")
+    )
     if not username:
         return None
     sub = session.scalar(
@@ -258,7 +260,7 @@ def apply_status_snapshot(
             select(Subscription)
             .where(
                 Subscription.vendor_id == vendor_id,
-                func.lower(Subscription.username) == username.lower(),
+                func.lower(Subscription.username) == username,
             )
             .order_by(Subscription.id.desc())
         )
@@ -318,7 +320,9 @@ def upsert_subscription_from_alert(
     parsed: dict[str, Any],
     received_at: datetime,
 ) -> Subscription | None:
-    username = (parsed.get("username") or "").strip().lstrip("\u200e").lstrip("\u200f")
+    username = username_key(
+        (parsed.get("username") or "").strip().lstrip("\u200e").lstrip("\u200f")
+    )
     if not username:
         return None
     sub = session.scalar(
@@ -332,7 +336,7 @@ def upsert_subscription_from_alert(
             select(Subscription)
             .where(
                 Subscription.vendor_id == vendor.id,
-                func.lower(Subscription.username) == username.lower(),
+                func.lower(Subscription.username) == username,
             )
             .order_by(Subscription.id.desc())
         )
@@ -894,14 +898,16 @@ def remove_subscription_after_provider_delete(
             .where(RenewJob.subscription_id == sub.id)
             .values(subscription_id=None)
         )
-    for row in list(
-        session.scalars(
-            select(CustomerServiceLink).where(
-                CustomerServiceLink.service_username == uname
+    key = username_key(uname)
+    if key:
+        for row in list(
+            session.scalars(
+                select(CustomerServiceLink).where(
+                    func.lower(CustomerServiceLink.service_username) == key
+                )
             )
-        )
-    ):
-        session.delete(row)
+        ):
+            session.delete(row)
     session.flush()
 
     if sub is not None:
@@ -1430,7 +1436,7 @@ def upsert_customer_profile(
 
 
 def link_customer_service(session: Session, telegram_id: int, service_username: str) -> CustomerServiceLink:
-    uname = service_username.strip()
+    uname = username_key(service_username) or (service_username or "").strip()
     key = username_key(uname)
     row = session.scalar(
         select(CustomerServiceLink).where(
@@ -1463,11 +1469,13 @@ def link_customer_service(session: Session, telegram_id: int, service_username: 
 def unlink_customer_service(
     session: Session, telegram_id: int, service_username: str
 ) -> bool:
-    uname = service_username.strip()
+    key = username_key(service_username)
+    if not key:
+        return False
     row = session.scalar(
         select(CustomerServiceLink).where(
             CustomerServiceLink.telegram_id == telegram_id,
-            CustomerServiceLink.service_username == uname,
+            func.lower(CustomerServiceLink.service_username) == key,
         )
     )
     if not row:
@@ -1650,13 +1658,15 @@ def set_local_owner(
                 )
             )
         )
-    existing.extend(
-        session.scalars(
-            select(CustomerServiceLink).where(
-                CustomerServiceLink.service_username == uname
+    key = username_key(uname)
+    if key:
+        existing.extend(
+            session.scalars(
+                select(CustomerServiceLink).where(
+                    func.lower(CustomerServiceLink.service_username) == key
+                )
             )
         )
-    )
     seen_ids: set[int] = set()
     for link in existing:
         if link.id in seen_ids:
@@ -1665,9 +1675,10 @@ def set_local_owner(
         session.delete(link)
     session.flush()
 
+    store_uname = key or uname
     row = CustomerServiceLink(
         telegram_id=to_telegram_id,
-        service_username=uname,
+        service_username=store_uname,
         subscription_id=sub.id if sub else None,
         vendor_id=sub.vendor_id if sub else None,
     )
@@ -2497,12 +2508,16 @@ def create_customer_order(
 ) -> CustomerOrder:
     now = datetime.utcnow()
     ttl = get_order_ttl_seconds(session)
+    su = (service_username or "").strip()
+    # Keep wallet marker uppercase; VPN usernames are always stored lowercase.
+    if su.upper() != "WALLET":
+        su = username_key(su) or su
     order = CustomerOrder(
         telegram_id=telegram_id,
         kind=kind,
         plan_id=plan_id,
         plan_mode=plan_mode,
-        service_username=service_username.strip(),
+        service_username=su,
         price_toman=price_toman,
         status="awaiting_payment",
         instructions_at=now,
@@ -3759,6 +3774,8 @@ def create_renew_job(
     vendor_id: int | None = None,
     plan_id: int | None = None,
 ) -> RenewJob:
+    # Always queue lowercase so vendor bots receive a stable casing.
+    username = username_key(username) or (username or "").strip()
     resolved_vendor_id = resolve_vendor_id_for_job(
         session,
         username=username,

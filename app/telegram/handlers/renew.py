@@ -481,7 +481,12 @@ async def _enqueue(
     username = cleaned
     with get_session() as session:
         sub = repo.get_subscription_by_username(session, username)
-        active = [j for j in repo.list_active_renew_jobs(session) if j.username == username]
+        want = repo.username_key(username)
+        active = [
+            j
+            for j in repo.list_active_renew_jobs(session)
+            if repo.username_key(j.username) == want
+        ]
         if active:
             await callback.answer("این اشتراک همین الان در صف است", show_alert=True)
             return
@@ -716,10 +721,11 @@ async def cb_retry(
         if old.status in repo.ACTIVE_RENEW_STATUSES:
             await callback.answer("هنوز فعال است", show_alert=True)
             return
+        want = repo.username_key(old.username)
         active_same = [
             j
             for j in repo.list_active_renew_jobs(session)
-            if j.username == old.username
+            if repo.username_key(j.username) == want
         ]
         if active_same:
             await callback.answer("همین یوزر در صف است", show_alert=True)

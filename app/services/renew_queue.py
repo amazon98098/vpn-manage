@@ -793,8 +793,9 @@ class RenewQueue:
                 return
             job_id = job.id
             # Prefer vendor-reported username (FineArts may append _digits on create).
-            vendor_uname = (username or "").strip().lstrip("\u200e").lstrip("\u200f")
-            job_uname = (job.username or "").strip().lstrip("\u200e").lstrip("\u200f")
+            # Always store lowercase — NetPlus and our shop treat casing as irrelevant.
+            vendor_uname = repo.username_key(username)
+            job_uname = repo.username_key(job.username)
             if (
                 vendor_uname
                 and job_uname
@@ -890,15 +891,14 @@ class RenewQueue:
 
             payload = dict(parsed or {})
             payload.setdefault("kind", "create_ok" if job_kind == "create" else "renew_ok")
-            # Keep vendor username from the success message when present.
-            actual = (payload.get("username") or "").strip().lstrip("\u200e").lstrip(
-                "\u200f"
-            )
+            # Keep vendor username from the success message when present (lowercase).
+            actual = repo.username_key(payload.get("username"))
             if actual:
                 uname = actual
-                if job and (job.username or "") != actual:
-                    job.username = actual
-                    repo.touch_renew_job(job)
+            uname = repo.username_key(uname) or uname
+            if job and uname and (job.username or "") != uname:
+                job.username = uname
+                repo.touch_renew_job(job)
             payload["username"] = uname
             # Fold case-only duplicates (Maryam_X vs maryam_x) into one inventory row.
             existing = repo.get_subscription_by_username(session, uname)

@@ -470,6 +470,7 @@ class FineArtsRenewDriver:
     ) -> DriveResult:
         """Extend current volume plan → TetheRial card + unique amount."""
         _ = (plan_mode, duration_callback, package_callback)
+        username = (username or "").strip().lower()
         async with self.lock:
             try:
                 entity = await self.ensure_entity()
@@ -514,6 +515,7 @@ class FineArtsRenewDriver:
             )
         from app.utils.text import sanitize_service_username
 
+        # sanitize_service_username always lowercases (vendor-safe).
         uname = sanitize_service_username(username) or ""
         if not uname:
             return DriveResult(
