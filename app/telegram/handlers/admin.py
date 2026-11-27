@@ -1535,7 +1535,9 @@ async def cb_requests(callback: CallbackQuery, settings: Settings) -> None:
     if not is_admin(callback.from_user.id, settings):
         return
     await callback.message.edit_text(
-        "📥 <b>درخواست‌های مشتری</b>\nبر اساس وضعیت فیلتر کنید:",
+        "📥 <b>درخواست‌های مشتری</b>\n"
+        "معمولاً فقط «نیاز به تایید شما» را باز کنید.\n"
+        "رسیدها و پرداخت‌های در انتظار همان‌جا به‌صورت پیام جدید هم می‌آیند.",
         reply_markup=requests_menu(),
     )
     await callback.answer()
@@ -1666,41 +1668,29 @@ async def _render_requests_bucket(
             f"<code>{o.telegram_id}</code>"
         )
         st = o.status
-        if st == "awaiting_payment":
-            ok_label = "✅ تایید بدون رسید"
-        elif st == "receipt_window":
-            ok_label = "✅ تایید واریز"
-        elif st == "awaiting_review":
-            ok_label = "✅ تایید و صف"
+        # One clear primary action: approve = mark paid + start vendor queue.
+        if st in ("awaiting_payment", "receipt_window", "awaiting_review"):
+            ok_label = f"✅ تایید و شروع #{o.id}"
         else:
-            ok_label = "✅ تایید"
+            ok_label = f"✅ تایید #{o.id}"
         row = [
             InlineKeyboardButton(
-                text=f"{ok_label} #{o.id}",
+                text=ok_label,
                 callback_data=f"corder:ok:{o.id}",
             ),
             InlineKeyboardButton(
-                text=f"🚫 #{o.id}",
+                text=f"🚫 رد #{o.id}",
                 callback_data=f"corder:no:{o.id}",
             ),
         ]
         kb_rows.append(row)
-        if o.amount_rial and st in ("awaiting_payment", "receipt_window"):
-            kb_rows.append(
-                [
-                    InlineKeyboardButton(
-                        text=f"⚡ مبلغ {o.amount_rial} #{o.id}",
-                        callback_data=f"corder:amt:{o.id}",
-                    )
-                ]
-            )
         if st in ("awaiting_payment", "receipt_window", "awaiting_review") and (
             repo.order_is_vendor_direct(o)
         ):
             kb_rows.append(
                 [
                     InlineKeyboardButton(
-                        text=f"📤 ارسال به فروشنده #{o.id}",
+                        text=f"📤 رسید → فروشنده #{o.id}",
                         callback_data=f"corder:vendor_fwd:{o.id}",
                     )
                 ]
@@ -1711,7 +1701,7 @@ async def _render_requests_bucket(
             kb_rows.append(
                 [
                     InlineKeyboardButton(
-                        text=f"✅ انجام دستی #{o.id}",
+                        text=f" دستی تمام شد #{o.id}",
                         callback_data=f"corder:manual_done:{o.id}",
                     )
                 ]
@@ -1739,8 +1729,9 @@ async def _render_requests_bucket(
         message,
         "\n".join(lines)
         + "\n\n"
-        "<i>✅ تایید بدون رسید / تایید واریز = تایید دستی پرداخت\n"
-        "⚡ مبلغ … = تایید با تطبیق مبلغ یکتای ریال</i>",
+        "<i>✅ تایید و شروع = پرداخت OK + صف خرید/تمدید فروشنده\n"
+        "🚫 رد = برگشت به مشتری با دلیل\n"
+        "دستی تمام شد = فقط وقتی خودتان روی فروشنده کار را تمام کردید</i>",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
         edit=edit,
     )
@@ -3316,8 +3307,11 @@ async def customer_order_approve(
     if result.get("already"):
         await callback.answer("قبلاً در صف/انجام است", show_alert=True)
         return
-    # Tracked receipt/approve messages are deleted inside approve_customer_order.
-    await callback.answer("تایید شد — پیام‌های بررسی پاک شد", show_alert=True)
+    job_id = result.get("job_id")
+    if job_id:
+        await callback.answer(f"تایید شد — صف فروشنده #{job_id}", show_alert=True)
+    else:
+        await callback.answer("تایید شد — سرویس شروع شد", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("corder:manual_done:"))

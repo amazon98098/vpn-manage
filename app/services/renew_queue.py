@@ -260,37 +260,27 @@ class RenewQueue:
     async def _notify_payment(
         self, job_id: int, text: str, markup: InlineKeyboardMarkup | None
     ) -> None:
-        """Upsert payment UI: edit prior admin messages instead of stacking."""
+        """Always send a fresh admin message for vendor card/payment details.
+
+        Editing in place hides Telegram's new-message notification; admins need
+        a real chat ping when the card/amount arrives. Previous payment UIs for
+        this job are deleted first so the chat stays tidy.
+        """
         bot = customer_bridge.admin_bot
         if bot is None:
             await self.notify(text, markup)
             return
-        tracked = self._load_pay_admin_msgs(job_id)
-        if tracked:
-            refreshed: list[tuple[int, int]] = []
-            for chat_id, mid in tracked:
+        old = self._pop_pay_admin_msgs(job_id)
+        for chat_id, mid in old:
+            try:
+                await bot.delete_message(chat_id, mid)
+            except Exception:
                 try:
-                    await bot.edit_message_text(
-                        text, chat_id=chat_id, message_id=mid, reply_markup=markup
+                    await bot.edit_message_reply_markup(
+                        chat_id=chat_id, message_id=mid, reply_markup=None
                     )
-                    refreshed.append((chat_id, mid))
                 except Exception:
-                    try:
-                        msg = await bot.send_message(
-                            chat_id, text, reply_markup=markup
-                        )
-                        refreshed.append((chat_id, msg.message_id))
-                        try:
-                            await bot.delete_message(chat_id, mid)
-                        except Exception:
-                            pass
-                    except Exception:
-                        log.exception(
-                            "Could not upsert payment UI for admin %s", chat_id
-                        )
-            if refreshed:
-                self._save_pay_admin_msgs(job_id, refreshed)
-            return
+                    pass
         new_tracked: list[tuple[int, int]] = []
         for admin_id in self.settings.admin_ids:
             try:
@@ -332,7 +322,7 @@ class RenewQueue:
     async def _upsert_job_notice(
         self, job_id: int, text: str, markup: InlineKeyboardMarkup | None = None
     ) -> None:
-        """Replace the last progress notice for this job (avoid admin message spam)."""
+        """Send a fresh admin progress notice (new message = Telegram notification)."""
         await self._notify_payment(job_id, text, markup)
 
     async def stop(self) -> None:

@@ -153,14 +153,19 @@ async def approve_customer_order(
         result = await _apply_paid_order(order_id, source=source, amount=amount)
         if not result.get("ok"):
             return result
+        job_id = result.get("job_id")
         summary = (
-            f"✅ سفارش #{order_id} از پلن تایید شد\n"
+            f"✅ سفارش #{order_id} تایید شد — سرویس شروع شد\n"
             f"{kind} · <code>{uname}</code> · مبلغ <code>{amount or '—'}</code>\n"
-            "مشتری مطلع شد / فعال‌سازی در صف است."
+            + (
+                f"صف فروشنده: #{job_id}"
+                if job_id
+                else "فعال‌سازی در صف است."
+            )
         )
         await _update_tracked_admin_order_ui(order_id, summary)
-        if source.startswith("admin_web"):
-            await _notify_admins_panel_action(summary)
+        # Fresh chat ping so Telegram shows a new notification (not only UI cleanup).
+        await _notify_admins_panel_action(summary)
         return {"ok": True, "kind": kind, "via": "paid", **result}
 
     if status0 in ("fulfilling", "approved") and already_job:
@@ -170,12 +175,11 @@ async def approve_customer_order(
     if not result.get("ok"):
         return result
     summary = (
-        f"✅ سفارش #{order_id} از پلن تایید و به صف رفت\n"
+        f"✅ سفارش #{order_id} تایید شد — سرویس شروع شد\n"
         f"{kind} · <code>{uname}</code> → صف #{result.get('job_id')}"
     )
     await _update_tracked_admin_order_ui(order_id, summary)
-    if source.startswith("admin_web"):
-        await _notify_admins_panel_action(summary)
+    await _notify_admins_panel_action(summary)
     return {"ok": True, "kind": kind, "via": "fulfill", **result}
 
 

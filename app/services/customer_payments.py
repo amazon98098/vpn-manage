@@ -510,9 +510,15 @@ async def _apply_paid_order(
                 pass
         else:
             # Paid create/renew — auto-fulfill unless admin enabled manual approval.
+            # Exception: when the admin already pressed Approve (bot/panel), always
+            # fulfill — do not bounce the order back into awaiting_review again.
             order.status = "awaiting_review"
             manual = repo.is_orders_manual_approval(session)
-            if manual:
+            admin_already_approved = (source or "").startswith("admin_")
+            if admin_already_approved:
+                order.note = (order.note or "") + "|admin_approved_fulfill"
+                fulfill = True
+            elif manual:
                 order.note = (order.note or "") + "|manual_approval"
                 fulfill = False
             else:
@@ -608,11 +614,15 @@ async def _apply_paid_order(
             source=source,
             wallet_balance=wallet_balance,
         )
+    fulfill_result: dict | None = None
     if fulfill:
         from app.services.customer_fulfill import enqueue_fulfillment
 
-        await enqueue_fulfillment(oid)
-    return {"ok": True, "order_id": oid, "amount": amount_show}
+        fulfill_result = await enqueue_fulfillment(oid)
+    out: dict = {"ok": True, "order_id": oid, "amount": amount_show}
+    if fulfill_result and fulfill_result.get("job_id"):
+        out["job_id"] = fulfill_result["job_id"]
+    return out
 
 
 async def _confirm_order_id(

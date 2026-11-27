@@ -583,6 +583,11 @@ async def _send_pay_for_order(message: Message, settings: Settings, order_id: in
         await _attach_gateway_if_possible(settings, order_id)
 
     local_card, local_holder = _card(settings)
+    kind_name = ""
+    is_vd = False
+    oid = 0
+    amount = ""
+    card = None
     with get_session() as session:
         order = repo.get_customer_order(session, order_id)
         if not order:
@@ -598,6 +603,7 @@ async def _send_pay_for_order(message: Message, settings: Settings, order_id: in
         applied = int(order.wallet_applied_toman or 0)
         expires_at = order.expires_at
         is_vd = repo.order_is_vendor_direct(order) or vendor_direct
+        kind_name = (order.kind or "").strip()
         kb = _payment_kb(order.id, amount, card or "", checkout_url=checkout)
         text = _c2c_instructions(
             amount_rial=amount,
@@ -619,6 +625,36 @@ async def _send_pay_for_order(message: Message, settings: Settings, order_id: in
     sent = await message.answer(text, reply_markup=kb)
     _track_order_ui_message(oid, sent.message_id if sent else None)
     _set_flow(message.from_user.id if message.from_user else 0, f"wait_receipt:{oid}")
+    # Vendor-direct card-to-card: ping admin chat so they see a new message immediately.
+    if is_vd and customer_bridge.admin_bot:
+        try:
+            cust_tg = message.from_user.id if message.from_user else 0
+            kind_fa = {"create": "خرید", "renew": "تمدید"}.get(
+                kind_name, "سفارش"
+            )
+            ping = (
+                f"💳 <b>کارت‌به‌کارت مستقیم فروشنده</b>\n"
+                f"سفارش #{oid} — {kind_fa}\n"
+                f"یوزر: <code>{uname0 or '—'}</code>\n"
+                f"مبلغ: <code>{amount or '—'}</code> ریال\n"
+                f"کارت: <code>{card or '—'}</code>\n"
+                f"مشتری: <code>{cust_tg}</code>\n"
+                "منتظر رسید مشتری / تایید خودکار فروشنده."
+            )
+            sent_list = await customer_bridge.notify_admins_action_required(
+                settings.admin_ids, ping
+            )
+            with get_session() as session:
+                for smsg in sent_list or []:
+                    mid = getattr(smsg, "message_id", None)
+                    chat = getattr(smsg, "chat", None)
+                    chat_id = getattr(chat, "id", None) if chat else None
+                    if mid and chat_id:
+                        repo.track_admin_order_ui_message(
+                            session, oid, int(chat_id), int(mid)
+                        )
+        except Exception:
+            log.exception("vendor-direct admin ping failed order=%s", oid)
 
 
 # ─── Main menu ───────────────────────────────────────────────────────────────
