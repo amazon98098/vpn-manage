@@ -57,6 +57,7 @@ async def run() -> None:
     init_db(settings.db_url)
     with get_session() as session:
         repo.ensure_default_price_plans(session)
+        repo.repair_customer_service_links(session)
         repo.ensure_default_bot_messages(session)
         repo.ensure_default_education(session)
 

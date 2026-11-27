@@ -10,8 +10,8 @@
 {% if flash %}<div class="flash">{{ t('updated') }}</div>{% endif %}
 <section class="panel">
   <div class="toolbar tools-bar">
-    <a class="btn {% if tier == 'friends' %}{% else %}ghost{% endif %} small" href="/rates?tier=friends&q={{ q }}">{{ t('rates_tab_friends') }}</a>
-    <a class="btn {% if tier == 'colleagues' %}{% else %}ghost{% endif %} small" href="/rates?tier=colleagues&q={{ q }}">{{ t('rates_tab_colleagues') }}</a>
+    <a class="btn {% if tier == 'friends' %}{% else %}ghost{% endif %} small" href="/rates?tier=friends&q={{ q }}&members={{ 1 if members_only else 0 }}">{{ t('rates_tab_friends') }}</a>
+    <a class="btn {% if tier == 'colleagues' %}{% else %}ghost{% endif %} small" href="/rates?tier=colleagues&q={{ q }}&members={{ 1 if members_only else 0 }}">{{ t('rates_tab_colleagues') }}</a>
     <span class="muted">{{ members_count }} · {{ t('profiles_page', total=total, page=page + 1, pages=pages) }}</span>
   </div>
   <div class="toolbar">

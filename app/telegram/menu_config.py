@@ -166,11 +166,6 @@ ADMIN_ACTIONS: dict[str, dict[str, Any]] = {
         "label": "👤 مالکیت",
         "aliases": ["👤 مالکیت", "👤 مالکیت سرویس"],
     },
-    "help": {
-        "fa_name": "راهنما",
-        "label": "ℹ️ راهنما",
-        "aliases": ["ℹ️ راهنما"],
-    },
 }
 
 DEFAULT_ADMIN_LAYOUT: list[list[str]] = [

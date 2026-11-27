@@ -122,6 +122,10 @@ async def cb_rates_invite(callback: CallbackQuery, settings: Settings) -> None:
     await callback.answer()
 
 
+def _rates_query_key(admin_id: int, tier: str) -> str:
+    return f"rates_q:{admin_id}:{tier}"
+
+
 async def _show_tier_list(
     message: Message,
     *,
@@ -129,8 +133,18 @@ async def _show_tier_list(
     page: int = 0,
     query: str | None = None,
     edit: bool = True,
+    admin_id: int = 0,
 ) -> None:
     with get_session() as session:
+        if query is None and admin_id:
+            stored = (repo.get_state(session, _rates_query_key(admin_id, tier)) or "").strip()
+            query = stored or None
+        elif admin_id:
+            repo.set_state(
+                session,
+                _rates_query_key(admin_id, tier),
+                (query or "").strip(),
+            )
         members = repo.list_customers_by_rate_tier(session, tier)
         member_ids = {int(p.telegram_id) for p in members}
         rows, total = repo.search_customer_profiles_page(
@@ -205,7 +219,13 @@ async def cb_rates_list(callback: CallbackQuery, settings: Settings) -> None:
         page = int(parts[3]) if len(parts) > 3 else 0
     except ValueError:
         page = 0
-    await _show_tier_list(callback.message, tier=tier, page=max(0, page), edit=True)
+    admin_id = callback.from_user.id if callback.from_user else 0
+    # Explicit list without search clears stored query.
+    with get_session() as session:
+        repo.set_state(session, _rates_query_key(admin_id, tier), "")
+    await _show_tier_list(
+        callback.message, tier=tier, page=max(0, page), edit=True, admin_id=admin_id
+    )
 
 
 @router.callback_query(F.data.startswith("rates:search:"))
@@ -233,11 +253,16 @@ async def cb_rates_toggle(callback: CallbackQuery, settings: Settings) -> None:
         await callback.answer("نامعتبر", show_alert=True)
         return
     tier = parts[2]
-    tg_id = int(parts[3])
+    try:
+        tg_id = int(parts[3])
+    except ValueError:
+        await callback.answer("نامعتبر", show_alert=True)
+        return
     try:
         page = int(parts[4]) if len(parts) > 4 else 0
     except ValueError:
         page = 0
+    admin_id = callback.from_user.id if callback.from_user else 0
     with get_session() as session:
         cur = repo.get_customer_rate_tier(session, tg_id)
         if cur == tier:
@@ -247,7 +272,9 @@ async def cb_rates_toggle(callback: CallbackQuery, settings: Settings) -> None:
             repo.set_customer_rate_tier(session, tg_id, tier)
             msg = "به لیست اضافه شد"
     await callback.answer(msg)
-    await _show_tier_list(callback.message, tier=tier, page=page, edit=True)
+    await _show_tier_list(
+        callback.message, tier=tier, page=page, edit=True, admin_id=admin_id
+    )
 
 
 # ─── Vendor-direct username picker ───────────────────────────────────────────
@@ -447,10 +474,19 @@ async def handle_rates_admin_text(message: Message, uid: int, flow: str, query: 
         with get_session() as session:
             repo.set_state(session, f"admin_flow:{uid}", "")
         if query.strip() in {"-", "—"}:
-            await _show_tier_list(message, tier=tier, page=0, edit=False)
+            with get_session() as session:
+                repo.set_state(session, _rates_query_key(uid, tier), "")
+            await _show_tier_list(
+                message, tier=tier, page=0, query="", edit=False, admin_id=uid
+            )
             return True
         await _show_tier_list(
-            message, tier=tier, page=0, query=query.strip(), edit=False
+            message,
+            tier=tier,
+            page=0,
+            query=query.strip(),
+            edit=False,
+            admin_id=uid,
         )
         return True
 

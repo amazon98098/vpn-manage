@@ -282,6 +282,7 @@ def create_app() -> FastAPI:
         repo.ensure_vendor(session, "netplus", "NetPlus", settings.netplus_bot)
         repo.ensure_vendor(session, "finearts", "FineArts", settings.finearts_bot)
         repo.ensure_default_price_plans(session)
+        repo.repair_customer_service_links(session)
 
     app = FastAPI(title="FX One Admin", docs_url=None, redoc_url=None)
     app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
@@ -1249,6 +1250,8 @@ def create_app() -> FastAPI:
         partial: int = 0,
         _auth: None = Depends(_require_auth),
     ):
+        from urllib.parse import urlencode
+
         tier = "colleagues" if tier == "colleagues" else "friends"
         page = max(0, page)
         page_size = 40
@@ -1257,15 +1260,21 @@ def create_app() -> FastAPI:
             member_rows = repo.list_customers_by_rate_tier(session, tier)
             member_ids = {int(p.telegram_id) for p in member_rows}
             if members_only and not q.strip():
-                total = len(member_rows)
-                slice_rows = member_rows[page * page_size : (page + 1) * page_size]
+                filtered = member_rows
             else:
-                slice_rows, total = repo.search_customer_profiles_page(
-                    session, query=q, page=page, page_size=page_size
+                # Pull a wide search window then filter/paginate in memory so
+                # members_only + q does not page-then-filter incorrectly.
+                pool, _ = repo.search_customer_profiles_page(
+                    session, query=q, page=0, page_size=5000
                 )
                 if members_only:
-                    slice_rows = [p for p in slice_rows if int(p.telegram_id) in member_ids]
-                    total = len(member_ids) if not q.strip() else len(slice_rows)
+                    filtered = [
+                        p for p in pool if int(p.telegram_id) in member_ids
+                    ]
+                else:
+                    filtered = pool
+            total = len(filtered)
+            slice_rows = filtered[page * page_size : (page + 1) * page_size]
             items = []
             for p in slice_rows:
                 display = (p.full_name or "").strip() or (
@@ -1306,6 +1315,8 @@ def create_app() -> FastAPI:
         members: int = Form(0),
         _auth: None = Depends(_require_auth),
     ):
+        from urllib.parse import urlencode
+
         tier = "colleagues" if tier == "colleagues" else "friends"
         with get_session() as session:
             cur = repo.get_customer_rate_tier(session, tg_id)
@@ -1313,10 +1324,16 @@ def create_app() -> FastAPI:
                 repo.set_customer_rate_tier(session, tg_id, "default")
             else:
                 repo.set_customer_rate_tier(session, tg_id, tier)
-        return RedirectResponse(
-            f"/rates?tier={tier}&q={q}&page={page}&members={members}&ok=1",
-            status_code=303,
+        qs = urlencode(
+            {
+                "tier": tier,
+                "q": q,
+                "page": page,
+                "members": members,
+                "ok": 1,
+            }
         )
+        return RedirectResponse(f"/rates?{qs}", status_code=303)
 
     @app.post("/customers/{tg_id}/wallet")
     async def customer_wallet_adjust(
@@ -1767,7 +1784,12 @@ def create_app() -> FastAPI:
             old_title = (plan.title or "").strip()
             new_title = (title or "").strip() or old_title
             plan.price_toman = int(price_toman)
-            plan.enabled = enabled in {"on", "1", "true", "yes"}
+            want_on = enabled in {"on", "1", "true", "yes"}
+            price_blocked = False
+            if want_on and int(price_toman) <= 0:
+                want_on = False
+                price_blocked = True
+            plan.enabled = want_on
             if new_title != old_title:
                 do_products = also_rename_products in {"on", "1", "true", "yes"}
                 _plan, renamed = repo.rename_price_plan(
@@ -1782,6 +1804,8 @@ def create_app() -> FastAPI:
         qs = "ok=1"
         if warn:
             qs += "&warn=rename"
+        if price_blocked:
+            qs += "&warn=noprice"
         if renamed:
             qs += f"&renamed={renamed}"
         return RedirectResponse(f"/prices?{qs}", status_code=303)
@@ -1862,7 +1886,10 @@ def create_app() -> FastAPI:
                             )
                         except ValueError:
                             pass
-                plan.enabled = enabled_key in form
+                want_on = enabled_key in form
+                if want_on and int(plan.price_toman or 0) <= 0:
+                    want_on = False
+                plan.enabled = want_on
                 plan.updated_at = datetime.utcnow()
                 updated += 1
             session.flush()

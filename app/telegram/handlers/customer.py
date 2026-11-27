@@ -1026,8 +1026,12 @@ async def buy_start(message: Message) -> None:
     await _buy_start_ui(message, edit=False)
 
 
-async def _buy_start_ui(message: Message, *, edit: bool = False) -> None:
-    uid = message.from_user.id if message.from_user else 0
+async def _buy_start_ui(
+    message: Message, *, edit: bool = False, uid: int | None = None
+) -> None:
+    uid = uid if uid is not None else (
+        message.from_user.id if message.from_user else 0
+    )
     with get_session() as session:
         opens = repo.list_customer_orders_for_user(
             session,
@@ -1095,7 +1099,7 @@ async def cust_back(callback: CallbackQuery) -> None:
     if step == "duration":
         draft["step"] = "panel"
         _set_draft(uid, draft)
-        await _buy_start_ui(callback.message, edit=True)
+        await _buy_start_ui(callback.message, edit=True, uid=uid)
         return
     if step == "volume":
         panel = draft.get("panel") or "economy"
@@ -1105,12 +1109,12 @@ async def cust_back(callback: CallbackQuery) -> None:
         if mode == "unlimited":
             draft["step"] = "panel"
             _set_draft(uid, draft)
-            await _buy_start_ui(callback.message, edit=True)
+            await _buy_start_ui(callback.message, edit=True, uid=uid)
         elif len(_enabled_duration_days(panel)) <= 1:
             # Duration step was skipped — go back to panel picker.
             draft["step"] = "panel"
             _set_draft(uid, draft)
-            await _buy_start_ui(callback.message, edit=True)
+            await _buy_start_ui(callback.message, edit=True, uid=uid)
         else:
             draft["step"] = "duration"
             _set_draft(uid, draft)
@@ -1119,7 +1123,7 @@ async def cust_back(callback: CallbackQuery) -> None:
     if step == "username":
         draft["step"] = "volume"
         _set_draft(uid, draft)
-        await _show_volumes(callback.message, draft, edit=True)
+        await _show_volumes(callback.message, draft, edit=True, uid=uid)
         return
     if step == "invoice":
         if draft.get("kind") == "renew":
@@ -1127,7 +1131,7 @@ async def cust_back(callback: CallbackQuery) -> None:
             if draft.get("plan_mode") == "change" and draft.get("duration_days"):
                 draft["step"] = "renew_volume"
                 _set_draft(uid, draft)
-                await _show_renew_volumes(callback.message, draft, edit=True)
+                await _show_renew_volumes(callback.message, draft, edit=True, uid=uid)
             elif username:
                 draft["step"] = "renew_choice"
                 _set_draft(uid, draft)
@@ -1143,7 +1147,20 @@ async def cust_back(callback: CallbackQuery) -> None:
         return
     if step == "renew_volume":
         username = str(draft.get("username") or "")
-        if username:
+        panel = str(draft.get("panel") or "economy")
+        # Multi-duration change-plan: Back should return to duration picker.
+        if (
+            username
+            and draft.get("plan_mode") == "change"
+            and panel != "volume"
+            and len(_enabled_duration_days_for_renew(username, panel)) > 1
+        ):
+            draft["step"] = "renew_choice"
+            _set_draft(uid, draft)
+            await _show_renew_duration_picker(
+                callback.message, draft, edit=True
+            )
+        elif username:
             draft["step"] = "renew_choice"
             _set_draft(uid, draft)
             await _show_renew_choices(callback.message, username, edit=True)
@@ -1240,7 +1257,7 @@ async def _show_durations(
         }
         if owner:
             _set_draft(owner, draft)
-        await _show_volumes(message, draft, edit=edit)
+        await _show_volumes(message, draft, edit=edit, uid=owner)
         return
     rows = [
         [
@@ -1276,7 +1293,7 @@ async def buy_panel(callback: CallbackQuery) -> None:
     if mode == "unlimited":
         draft = {"step": "volume", "panel": panel, "duration_days": 0}
         _set_draft(uid, draft)
-        await _show_volumes(callback.message, draft, edit=True)
+        await _show_volumes(callback.message, draft, edit=True, uid=uid)
     else:
         draft = {"step": "duration", "panel": panel}
         _set_draft(uid, draft)
@@ -1291,15 +1308,17 @@ async def buy_duration(callback: CallbackQuery) -> None:
     draft = _get_draft(uid)
     draft.update({"step": "volume", "duration_days": days})
     _set_draft(uid, draft)
-    await _show_volumes(callback.message, draft, edit=True)
+    await _show_volumes(callback.message, draft, edit=True, uid=uid)
     await callback.answer()
 
 
-async def _show_volumes(message: Message, draft: dict, *, edit: bool = False) -> None:
+async def _show_volumes(
+    message: Message, draft: dict, *, edit: bool = False, uid: int = 0
+) -> None:
     raw_days = draft.get("duration_days")
     days = int(raw_days) if raw_days is not None else 31
     panel = str(draft.get("panel") or "economy")
-    uid = message.from_user.id if message.from_user else 0
+    # Never use message.from_user here — on edited callbacks it is the bot.
     rows: list[list[InlineKeyboardButton]] = []
     icon = ICON_VOLUME if days == 0 else ICON_ECONOMY
     with get_session() as session:
@@ -1312,6 +1331,8 @@ async def _show_volumes(message: Message, draft: dict, *, edit: bool = False) ->
         ]
         for plan in plans:
             price = _price_for_uid(session, plan, uid)
+            if price <= 0:
+                continue
             label = _volume_plan_label(
                 icon=icon,
                 traffic_gb=plan.traffic_gb,
@@ -1331,7 +1352,7 @@ async def _show_volumes(message: Message, draft: dict, *, edit: bool = False) ->
         await _ui_show(
             message,
             "پلنی برای این مدت تعریف نشده.",
-            reply_markup=customer_menu(),
+            reply_markup=_back_kb(),
             edit=edit,
         )
         return
@@ -1347,6 +1368,14 @@ async def _show_volumes(message: Message, draft: dict, *, edit: bool = False) ->
 async def buy_volume(callback: CallbackQuery) -> None:
     uid = callback.from_user.id if callback.from_user else 0
     plan_id = int((callback.data or "").rsplit(":", 1)[1])
+    with get_session() as session:
+        plan = repo.get_price_plan(session, plan_id)
+        if not plan or not plan.enabled:
+            await callback.answer("پلن نامعتبر", show_alert=True)
+            return
+        if _price_for_uid(session, plan, uid) <= 0:
+            await callback.answer("قیمت این پلن هنوز تنظیم نشده", show_alert=True)
+            return
     draft = _get_draft(uid)
     draft.update({"step": "username", "plan_id": plan_id})
     _set_draft(uid, draft)
@@ -1395,7 +1424,7 @@ async def _show_invoice(message: Message, uid: int, draft: dict, *, edit: bool =
     dur_label = (
         "نامحدود زمانی"
         if int(plan.duration_days or 0) == 0
-        else f"{plan.duration_days} روز"
+        else duration_months_label(int(plan.duration_days or 0))
     )
     base_note = ""
     base = str(draft.get("username_base") or "").strip()
@@ -1916,7 +1945,7 @@ async def cust_go(callback: CallbackQuery, settings: Settings) -> None:
     uid = callback.from_user.id if callback.from_user else 0
     _set_flow(uid, "")
     if action == "buy":
-        await _buy_start_ui(callback.message, edit=True)
+        await _buy_start_ui(callback.message, edit=True, uid=uid)
         return
     if action == "mine":
         await _render_services_page(callback.message, uid=uid, page=0, edit=True)
@@ -2684,14 +2713,78 @@ async def _show_renew_choices(
     )
 
 
-async def _show_renew_volumes(
+def _enabled_duration_days_for_renew(username: str, panel: str) -> list[int]:
+    with get_session() as session:
+        plans = _plans_for_panel(
+            _plans_for_service_vendor(
+                session,
+                username,
+                repo.list_price_plans(session, enabled_only=True),
+            ),
+            panel,
+        )
+    return sorted(
+        {int(p.duration_days) for p in plans if p.duration_days is not None}
+    )
+
+
+async def _show_renew_duration_picker(
     message: Message, draft: dict, *, edit: bool = False
+) -> None:
+    username = str(draft.get("username") or "")
+    panel = str(draft.get("panel") or "economy")
+    days_list = _enabled_duration_days_for_renew(username, panel)
+    u = username[:40]
+    if not days_list:
+        await _ui_show(
+            message,
+            "پلنی برای تمدید فعال نیست.",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="⬅️ بازگشت",
+                            callback_data=f"cust:svcrenew:{u}",
+                        )
+                    ]
+                ]
+            ),
+            edit=edit,
+        )
+        return
+    rows: list[list[InlineKeyboardButton]] = []
+    for days in days_list:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=_DURATION_LABELS.get(days, f"{days} روز"),
+                    callback_data=f"cust:renew:dur:{days}:{u}",
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="⬅️ بازگشت",
+                callback_data=f"cust:svcrenew:{u}",
+            )
+        ]
+    )
+    await _ui_show(
+        message,
+        f"⏱ مدت تمدید را انتخاب کنید:\nپلن: <b>{_panel_title(panel)}</b>",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        edit=edit,
+    )
+
+
+async def _show_renew_volumes(
+    message: Message, draft: dict, *, edit: bool = False, uid: int = 0
 ) -> None:
     raw_days = draft.get("duration_days")
     days = int(raw_days) if raw_days is not None else 31
     panel = str(draft.get("panel") or "economy")
     username = str(draft.get("username") or "")
-    uid = message.from_user.id if message.from_user else 0
     rows: list[list[InlineKeyboardButton]] = []
     icon = ICON_VOLUME if days == 0 else ICON_ECONOMY
     with get_session() as session:
@@ -2705,6 +2798,8 @@ async def _show_renew_volumes(
         ]
         for plan in plans:
             price = _price_for_uid(session, plan, uid)
+            if price <= 0:
+                continue
             label = _volume_plan_label(
                 icon=icon,
                 traffic_gb=plan.traffic_gb,
@@ -2724,7 +2819,7 @@ async def _show_renew_volumes(
         await _ui_show(
             message,
             "پلنی برای این مدت تعریف نشده.",
-            reply_markup=customer_menu(),
+            reply_markup=_back_kb(),
             edit=edit,
         )
         return
@@ -2829,25 +2924,9 @@ async def renew_panel(callback: CallbackQuery) -> None:
             "plan_mode": "change",
         }
         _set_draft(uid, draft)
-        await _show_renew_volumes(callback.message, draft, edit=True)
+        await _show_renew_volumes(callback.message, draft, edit=True, uid=uid)
     else:
-        with get_session() as session:
-            plans = _plans_for_panel(
-                _plans_for_service_vendor(
-                    session,
-                    username,
-                    repo.list_price_plans(session, enabled_only=True),
-                ),
-                panel,
-            )
-            days_list = sorted(
-                {
-                    int(p.duration_days)
-                    for p in plans
-                    if p.duration_days is not None
-                }
-            )
-        u = username[:40]
+        days_list = _enabled_duration_days_for_renew(username, panel)
         # Only one enabled duration → skip straight to volume list.
         if len(days_list) == 1:
             draft = {
@@ -2859,7 +2938,7 @@ async def renew_panel(callback: CallbackQuery) -> None:
                 "plan_mode": "change",
             }
             _set_draft(uid, draft)
-            await _show_renew_volumes(callback.message, draft, edit=True)
+            await _show_renew_volumes(callback.message, draft, edit=True, uid=uid)
         else:
             draft = {
                 "step": "renew_choice",
@@ -2869,30 +2948,7 @@ async def renew_panel(callback: CallbackQuery) -> None:
                 "plan_mode": "change",
             }
             _set_draft(uid, draft)
-            rows: list[list[InlineKeyboardButton]] = []
-            for days in days_list:
-                rows.append(
-                    [
-                        InlineKeyboardButton(
-                            text=_DURATION_LABELS.get(days, f"{days} روز"),
-                            callback_data=f"cust:renew:dur:{days}:{u}",
-                        )
-                    ]
-                )
-            rows.append(
-                [
-                    InlineKeyboardButton(
-                        text="⬅️ بازگشت",
-                        callback_data=f"cust:svcrenew:{u}",
-                    )
-                ]
-            )
-            await _ui_show(
-                callback.message,
-                f"⏱ مدت تمدید را انتخاب کنید:\nپلن: <b>{_panel_title(panel)}</b>",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
-                edit=True,
-            )
+            await _show_renew_duration_picker(callback.message, draft, edit=True)
     await callback.answer()
 
 
@@ -2918,7 +2974,7 @@ async def renew_duration(callback: CallbackQuery) -> None:
         "plan_mode": "change",
     }
     _set_draft(uid, draft)
-    await _show_renew_volumes(callback.message, draft, edit=True)
+    await _show_renew_volumes(callback.message, draft, edit=True, uid=uid)
     await callback.answer()
 
 
@@ -2935,6 +2991,9 @@ async def renew_volume(callback: CallbackQuery) -> None:
         plan = repo.get_price_plan(session, plan_id)
         if not plan or not plan.enabled:
             await callback.answer("پلن نامعتبر", show_alert=True)
+            return
+        if _price_for_uid(session, plan, uid) <= 0:
+            await callback.answer("قیمت این پلن هنوز تنظیم نشده", show_alert=True)
             return
         if not repo.plan_matches_service_vendor(session, plan, username=username):
             await callback.answer(

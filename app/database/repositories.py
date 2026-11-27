@@ -1168,8 +1168,9 @@ def ensure_default_price_plans(session: Session) -> None:
             plan.title = title
             plan.traffic_gb = gb
             plan.duration_days = days
-            # Keep admin-edited sell price; only seed cost + sort/enabled.
-            if plan.price_toman <= 0:
+            # Keep admin-edited sell price / enabled flag. Never force-enable on boot
+            # (that undid panel/bot disables after every restart).
+            if plan.price_toman <= 0 and price > 0:
                 plan.price_toman = price
             if cost and not plan.vendor_cost_toman:
                 plan.vendor_cost_toman = cost
@@ -1178,12 +1179,6 @@ def ensure_default_price_plans(session: Session) -> None:
             if key.startswith("fa_"):
                 plan.price_toman = price
                 plan.vendor_cost_toman = cost or None
-                plan.enabled = True
-            elif key in SEED_DISABLED_PLAN_KEYS:
-                # Keep admin on/off; do not force-enable optional 3m plans.
-                pass
-            else:
-                plan.enabled = True
     # Disable anything not in the sell catalog (legacy leftovers)
     for plan in session.scalars(select(PricePlan)).all():
         if plan.key not in wanted_keys:
@@ -1246,6 +1241,32 @@ def finearts_package_callback_for_plan(plan: PricePlan | None) -> str | None:
     if key == "fa_100gb" or (key.startswith("fa_") and gb == 100):
         return "fa_vol_100"
     return None
+
+
+def repair_customer_service_links(session: Session) -> int:
+    """Backfill missing subscription_id / vendor_id on ownership links."""
+    fixed = 0
+    rows = list(
+        session.scalars(
+            select(CustomerServiceLink).where(
+                CustomerServiceLink.subscription_id.is_(None)
+            )
+        )
+    )
+    for row in rows:
+        sub = get_subscription_by_username(session, row.service_username or "")
+        if not sub:
+            continue
+        row.subscription_id = sub.id
+        if sub.vendor_id and not row.vendor_id:
+            row.vendor_id = sub.vendor_id
+        # Align stored username with inventory casing.
+        if sub.username and row.service_username != sub.username:
+            row.service_username = sub.username
+        fixed += 1
+    if fixed:
+        session.flush()
+    return fixed
 
 
 def list_price_plans(session: Session, *, enabled_only: bool = False) -> list[PricePlan]:
