@@ -681,11 +681,31 @@ async def cmd_menu(message: Message) -> None:
     await _show_customer_home(message, edit=False)
 
 
+async def _referral_menu_ui(message: Message, *, edit: bool = False) -> None:
+    """مجموعه‌گیری: live → wallet/referral home; otherwise coming-soon notice."""
+    with get_session() as session:
+        live = repo.is_referral_menu_live(session)
+    if live:
+        await _wallet_home_ui(message, edit=edit)
+        return
+    await _ui_show(
+        message,
+        "🎁 <b>مجموعه‌گیری</b>\n\n"
+        "این بخش به‌زودی فعال می‌شود.\n"
+        "فعلاً از منوی پایین برای خرید و سایر گزینه‌ها استفاده کنید.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🏠 منوی اصلی", callback_data="cust:home")]
+            ]
+        ),
+        edit=edit,
+    )
+
+
 @router.message(F.text.func(lambda t: bool(t) and t in _cust_labels("referral")))
-async def referral_menu_stub(message: Message) -> None:
-    """Reserved main-menu item; disabled in default layout until launched."""
+async def referral_menu_entry(message: Message) -> None:
     _track(message)
-    await _wallet_home_ui(message, edit=False)
+    await _referral_menu_ui(message, edit=False)
 
 
 @router.callback_query(F.data == "cust:channel:check")
@@ -1812,6 +1832,9 @@ async def cust_go(callback: CallbackQuery, settings: Settings) -> None:
     if action == "support":
         _set_flow(uid, "support_hub")
         await _show_support_hub(callback.message, settings, edit=True)
+        return
+    if action == "referral":
+        await _referral_menu_ui(callback.message, edit=True)
         return
     await _show_customer_home(callback.message, edit=True)
 

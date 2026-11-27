@@ -18,6 +18,8 @@
         <th>{{ t('key') }}</th>
         <th>{{ t('plan') }}</th>
         <th>{{ t('price_cost') }}</th>
+        <th>{{ t('price_friends') }}</th>
+        <th>{{ t('price_colleagues') }}</th>
         <th>{{ t('enabled') }}</th>
         <th></th>
       </tr>
@@ -37,13 +39,23 @@
           </form>
         </td>
         <td class="mono num-cell">{{ icon }} {{ p.key }}</td>
-        <td colspan="2" class="price-edit">
+        <td class="price-edit">
           <span class="plan-mark" title="Plan type">{{ icon }}</span>
           <input form="prices-save-all" name="title_{{ p.id }}" class="price-edit-input" value="{{ p.title }}" placeholder="Title" />
           <span class="muted mono">{% if (p.duration_days or 0) == 0 %}{{ t('unlimited_days') }}{% else %}{{ p.duration_days }}d{% endif %}</span>
           <span class="mono">{% if p.traffic_gb %}{{ p.traffic_gb }} GB{% else %}—{% endif %}</span>
+        </td>
+        <td class="price-edit">
           <input form="prices-save-all" type="number" name="price_toman_{{ p.id }}" class="price-edit-input num-cell" value="{{ p.price_toman }}" />
           <span class="muted mono num-cell">cost {{ (p.vendor_cost_toman or 0) | toman }}</span>
+        </td>
+        <td>
+          <input form="prices-save-all" type="number" name="price_friends_{{ p.id }}" class="price-edit-input num-cell" value="{{ p.price_friends_toman if p.price_friends_toman is not none else '' }}" placeholder="—" />
+        </td>
+        <td>
+          <input form="prices-save-all" type="number" name="price_colleagues_{{ p.id }}" class="price-edit-input num-cell" value="{{ p.price_colleagues_toman if p.price_colleagues_toman is not none else '' }}" placeholder="—" />
+        </td>
+        <td>
           <label class="chip"><input form="prices-save-all" type="checkbox" name="enabled_{{ p.id }}" {% if p.enabled %}checked{% endif %} /> on</label>
         </td>
         <td>
@@ -53,7 +65,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="muted">{{ t('no_price_plans') }}</td></tr>
+      <tr><td colspan="8" class="muted">{{ t('no_price_plans') }}</td></tr>
       {% endfor %}
     </tbody>
   </table>

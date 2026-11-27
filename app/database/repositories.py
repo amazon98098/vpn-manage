@@ -2986,6 +2986,18 @@ def set_plan_tier_price(
     return plan
 
 
+def is_referral_menu_live(session: Session) -> bool:
+    """When false, customer main menu shows مجموعه‌گیری as coming-soon."""
+    raw = (get_state(session, "referral_menu_live") or "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def set_referral_menu_live(session: Session, enabled: bool) -> bool:
+    val = bool(enabled)
+    set_state(session, "referral_menu_live", "1" if val else "0")
+    return val
+
+
 def get_referral_percent(session: Session) -> int:
     raw = (get_state(session, "referral_commission_percent") or "").strip()
     try:

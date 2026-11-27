@@ -52,10 +52,14 @@ CUSTOMER_ACTIONS: dict[str, dict[str, Any]] = {
     },
     "referral": {
         "fa_name": "مجموعه‌گیری",
-        "label": "🎁 مجموعه‌گیری",
-        "aliases": ["🎁 مجموعه‌گیری", "مجموعه‌گیری"],
-        # Present in catalog for later enable; omitted from default layout while off.
-        "enabled": False,
+        # Default coming-soon label; live label swapped in label_for when enabled.
+        "label": "🎁 مجموعه‌گیری (به‌زودی)",
+        "aliases": [
+            "🎁 مجموعه‌گیری (به‌زودی)",
+            "🎁 مجموعه‌گیری",
+            "مجموعه‌گیری",
+        ],
+        "enabled": True,
     },
     "hide_menu": {
         "fa_name": "مخفی کردن منو",
@@ -75,7 +79,7 @@ DEFAULT_CUSTOMER_LAYOUT: list[list[str]] = [
     ["buy", "mine"],
     ["wallet", "prices"],
     ["guide", "support"],
-    # "referral" stays off until explicitly enabled in layout/settings.
+    ["referral"],
 ]
 
 # ─── Customer support submenu (reply keyboard) ────────────────────────────────
@@ -251,8 +255,18 @@ CUSTOMER_INLINE_MENUS: dict[str, dict[str, Any]] = {
             {"id": "prices", "label": "💵 تعرفه‌ها", "callback": "cust:go:prices"},
             {"id": "guide", "label": "📚 آموزش", "callback": "cust:go:guide"},
             {"id": "support", "label": "💬 پشتیبانی", "callback": "cust:go:support"},
+            {
+                "id": "referral",
+                "label": "🎁 مجموعه‌گیری (به‌زودی)",
+                "callback": "cust:go:referral",
+            },
         ],
-        "layout": [["buy", "mine"], ["wallet", "prices"], ["guide", "support"]],
+        "layout": [
+            ["buy", "mine"],
+            ["wallet", "prices"],
+            ["guide", "support"],
+            ["referral"],
+        ],
     },
     "service_actions": {
         "fa_title": "منوی جزئیات سرویس",
@@ -500,6 +514,19 @@ def label_for(bot: str, action: str) -> str:
     catalog = actions_catalog(bot)
     meta = catalog.get(action) or {}
     overrides = load_labels(bot)
+    if bot == "customer" and action == "referral":
+        # Live switch controls button wording; overrides still win if set.
+        if not overrides.get(action):
+            try:
+                with get_session() as session:
+                    live = repo.is_referral_menu_live(session)
+            except Exception:
+                live = False
+            return (
+                "🎁 مجموعه‌گیری"
+                if live
+                else "🎁 مجموعه‌گیری (به‌زودی)"
+            )
     return (overrides.get(action) or meta.get("label") or action).strip()
 
 

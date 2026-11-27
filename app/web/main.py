@@ -1684,8 +1684,15 @@ def create_app() -> FastAPI:
                 pid = plan.id
                 title_key = f"title_{pid}"
                 price_key = f"price_toman_{pid}"
+                friends_key = f"price_friends_{pid}"
+                colleagues_key = f"price_colleagues_{pid}"
                 enabled_key = f"enabled_{pid}"
-                if title_key not in form and price_key not in form:
+                if (
+                    title_key not in form
+                    and price_key not in form
+                    and friends_key not in form
+                    and colleagues_key not in form
+                ):
                     continue
                 title_raw = form.get(title_key)
                 price_raw = form.get(price_key)
@@ -1698,6 +1705,37 @@ def create_app() -> FastAPI:
                         plan.price_toman = int(str(price_raw).replace(",", ""))
                     except ValueError:
                         pass
+                if friends_key in form:
+                    fr_raw = str(form.get(friends_key) or "").strip().replace(",", "")
+                    if not fr_raw:
+                        repo.set_plan_tier_price(
+                            session, pid, tier="friends", price_toman=None
+                        )
+                    else:
+                        try:
+                            repo.set_plan_tier_price(
+                                session, pid, tier="friends", price_toman=int(fr_raw)
+                            )
+                        except ValueError:
+                            pass
+                if colleagues_key in form:
+                    col_raw = (
+                        str(form.get(colleagues_key) or "").strip().replace(",", "")
+                    )
+                    if not col_raw:
+                        repo.set_plan_tier_price(
+                            session, pid, tier="colleagues", price_toman=None
+                        )
+                    else:
+                        try:
+                            repo.set_plan_tier_price(
+                                session,
+                                pid,
+                                tier="colleagues",
+                                price_toman=int(col_raw),
+                            )
+                        except ValueError:
+                            pass
                 plan.enabled = enabled_key in form
                 plan.updated_at = datetime.utcnow()
                 updated += 1
@@ -2412,6 +2450,15 @@ def create_app() -> FastAPI:
             customer_bot_disabled_message = repo.get_customer_bot_disabled_message(
                 session
             )
+            from app.telegram.channel_gate import (
+                get_required_channel,
+                is_channel_gate_enabled,
+            )
+
+            required_channel = get_required_channel()
+            required_channel_gate = is_channel_gate_enabled()
+            referral_percent = repo.get_referral_percent(session)
+            referral_menu_live = repo.is_referral_menu_live(session)
         from app.utils.duration import (
             format_minutes_csv,
             seconds_to_minutes_value,
@@ -2442,6 +2489,10 @@ def create_app() -> FastAPI:
                 orders_manual_approval=orders_manual_approval,
                 direct_vendor_card_pay=direct_vendor_card_pay,
                 direct_vendor_card_usernames=direct_vendor_card_usernames,
+                required_channel=required_channel,
+                required_channel_gate=required_channel_gate,
+                referral_percent=referral_percent,
+                referral_menu_live=referral_menu_live,
                 customer_bot_enabled=customer_bot_enabled,
                 customer_bot_disabled_message=customer_bot_disabled_message,
                 flash=request.query_params.get("ok"),
@@ -2530,6 +2581,29 @@ def create_app() -> FastAPI:
             )
             repo.set_direct_vendor_card_usernames(
                 session, str(form.get("direct_vendor_card_usernames") or "")
+            )
+            from app.telegram.channel_gate import (
+                set_channel_gate_enabled,
+                set_required_channel,
+            )
+
+            set_channel_gate_enabled(
+                str(form.get("required_channel_gate") or "").strip()
+                in {"1", "on", "true", "yes"}
+            )
+            ch_raw = str(form.get("required_channel") or "").strip()
+            if ch_raw:
+                set_required_channel(ch_raw)
+            try:
+                repo.set_referral_percent(
+                    session, int(float(str(form.get("referral_percent") or "0")))
+                )
+            except ValueError:
+                pass
+            repo.set_referral_menu_live(
+                session,
+                str(form.get("referral_menu_live") or "").strip()
+                in {"1", "on", "true", "yes"},
             )
             try:
                 repo.set_admin_vendor_alert_max_repeats(

@@ -98,6 +98,34 @@
   </section>
 
   <section class="panel">
+    <div class="toolbar"><strong>{{ t('settings_channel') }}</strong></div>
+    <p class="muted small panel-lead">{{ t('settings_channel_lead') }}</p>
+    <div class="form-stack">
+      <label class="chip check-row">
+        <input type="checkbox" name="required_channel_gate" value="1" {% if required_channel_gate %}checked{% endif %} />
+        {{ t('required_channel_gate') }}
+      </label>
+      <label>{{ t('required_channel') }}
+        <input name="required_channel" value="{{ required_channel }}" dir="ltr" placeholder="fxonevpn" />
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar"><strong>{{ t('settings_referral') }}</strong></div>
+    <p class="muted small panel-lead">{{ t('settings_referral_lead') }}</p>
+    <div class="form-stack form-2col">
+      <label>{{ t('referral_percent') }}
+        <input name="referral_percent" type="number" min="0" max="100" value="{{ referral_percent }}" class="num-cell" />
+      </label>
+      <label class="chip check-row" style="align-self:end">
+        <input type="checkbox" name="referral_menu_live" value="1" {% if referral_menu_live %}checked{% endif %} />
+        {{ t('referral_menu_live') }}
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
     <div class="toolbar"><strong>{{ t('settings_admin_alerts') }}</strong></div>
     <p class="muted small panel-lead">{{ t('settings_admin_alerts_lead') }}</p>
     <div class="form-stack form-2col">
