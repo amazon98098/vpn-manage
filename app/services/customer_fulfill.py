@@ -198,26 +198,53 @@ async def enqueue_fulfillment(order_id: int, *, requested_by: int | None = None)
 
 
 async def notify_fulfillment_failed(order_id: int, reason: str = "") -> None:
-    """Notify admins only — customers are not messaged on vendor fulfill failure.
+    """Loud new admin message when vendor create/renew fails for a customer order."""
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-    Admin already tracks the renew queue; they can message the customer if needed.
-    """
     with get_session() as session:
         order = repo.get_customer_order(session, order_id)
         if not order:
             return
         tg = order.telegram_id
-        uname = order.service_username
+        uname = order.service_username or "—"
         oid = order.id
-    if customer_bridge.admin_bot:
-        from app.config import load_settings
-
-        settings = load_settings(require_bot=True)
-        for admin_id in settings.admin_ids:
-            try:
-                await customer_bridge.admin_bot.send_message(
-                    admin_id,
-                    f"❌ Fulfill failed order #{oid} user={uname} tg={tg}\n{reason[:200]}",
+        kind = order.kind or "—"
+        job_id = order.renew_job_id
+        kind_fa = {"create": "خرید", "renew": "تمدید"}.get(kind, kind)
+    reason_s = (reason or "نامشخص")[:240]
+    text = (
+        f"🚨 <b>فعال‌سازی ناموفق</b>\n"
+        f"سفارش #{oid} — {kind_fa}\n"
+        f"یوزر: <code>{uname}</code>\n"
+        f"مشتری: <code>{tg}</code>\n"
+        f"صف: #{job_id or '—'}\n"
+        f"علت: <code>{reason_s}</code>\n"
+        "نیاز به واکنش ادمین (ری‌ترای یا انجام دستی)."
+    )
+    rows: list[list[InlineKeyboardButton]] = []
+    if job_id:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="♻️ تلاش دوباره",
+                    callback_data=f"renew:retry:{job_id}",
                 )
-            except Exception:
-                pass
+            ]
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="✅ انجام دستی و تایید",
+                    callback_data=f"renew:manual_ok:{job_id}",
+                )
+            ]
+        )
+    rows.append(
+        [InlineKeyboardButton(text="📋 صف سفارش‌ها", callback_data="renew:queue")]
+    )
+    try:
+        await customer_bridge.ping_admins(
+            text, reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
+        )
+    except Exception:
+        log.exception("fulfill-fail admin ping failed order=%s", order_id)

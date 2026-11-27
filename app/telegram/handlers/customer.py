@@ -3717,11 +3717,10 @@ async def text_flow(message: Message, settings: Settings) -> None:
             order_ref = ticket.order_id
         uname = message.from_user.username if message.from_user else ""
         caption = (
-            f"🔔 <b>درخواست جدید — پاسخ مشتری در تیکت</b>\n"
-            f"تیکت #{ticket_id}\n"
+            f"🆘 <b>پاسخ جدید مشتری در تیکت</b>\n"
+            f"تیکت #{ticket_id} — نیاز به پاسخ شما\n"
             f"سفارش: #{order_ref or '—'}\n"
-            f"از: <code>{uid}</code> @{uname}\n"
-            f"نیاز به واکنش ادمین\n\n"
+            f"از: <code>{uid}</code> @{uname}\n\n"
             f"{text}"
         )
         kb = InlineKeyboardMarkup(
@@ -3795,12 +3794,11 @@ async def text_flow(message: Message, settings: Settings) -> None:
         _set_flow(uid, f"ticket:{ticket_id}")
         uname = message.from_user.username if message.from_user else ""
         caption = (
-            f"🔔 <b>درخواست جدید — تیکت پشتیبانی</b>\n"
-            f"تیکت #{ticket_id}\n"
+            f"🆘 <b>تیکت پشتیبانی جدید</b>\n"
+            f"تیکت #{ticket_id} — نیاز به پاسخ شما\n"
             f"📌 موضوع: {subject}\n"
             f"از: <code>{uid}</code> @{uname}\n"
-            f"نام: {(message.from_user.full_name if message.from_user else '')}\n"
-            f"نیاز به واکنش ادمین\n\n"
+            f"نام: {(message.from_user.full_name if message.from_user else '')}\n\n"
             f"{body}"
         )
         kb = InlineKeyboardMarkup(

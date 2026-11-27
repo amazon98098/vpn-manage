@@ -361,20 +361,28 @@ async def _notify_manual_approval(
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
     kind_fa = _kind_fa(kind)
+    if kind == "wallet":
+        title = "🔔 <b>شارژ کیف پول — نیاز به تایید شما</b>"
+        ok_label = "✅ تایید شارژ کیف پول"
+        hint = "با تایید، مبلغ به کیف پول مشتری واریز می‌شود."
+    else:
+        title = "🔔 <b>تراکنش جهت تایید دستی</b>"
+        ok_label = "✅ تایید و شروع سرویس"
+        hint = "با تایید، خرید/تمدید در صف فروشنده شروع می‌شود."
     text = (
-        f"🔔 <b>تراکنش جهت تایید دستی</b>\n"
+        f"{title}\n"
         f"سفارش #{oid} — {kind_fa}\n"
         f"یوزر: <code>{uname}</code>\n"
         f"مبلغ: {price:,} ت / <code>{amount_show}</code> ریال\n"
         f"منبع: {source}\n"
         f"مشتری: <code>{tg}</code>\n\n"
-        "همین‌جا تایید یا رد کنید — نیازی به رفتن به زیرمنوی درخواست‌ها نیست."
+        f"{hint}"
     )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="✅ تایید و صف سرویس",
+                    text=ok_label,
                     callback_data=f"corder:ok:{oid}",
                 ),
                 InlineKeyboardButton(
@@ -493,21 +501,31 @@ async def _apply_paid_order(
         wallet_balance = None
         fulfill = False
         referral_info = None
+        wallet_manual = False
 
         if kind == "wallet":
-            wallet_balance, credited = repo.credit_wallet_once_for_order(
-                session,
-                tg,
-                price,
-                order_id=oid,
-                note=source,
-            )
-            order.status = "done"
-            order.completed_at = datetime.utcnow()
-            repo.touch_customer_order(order)
-            if not credited:
-                # Already credited earlier — still notify as success/idempotent
-                pass
+            manual = repo.is_orders_manual_approval(session)
+            admin_already_approved = (source or "").startswith("admin_")
+            if manual and not admin_already_approved:
+                # Hold credit until admin taps approve in chat.
+                order.status = "awaiting_review"
+                order.note = (order.note or "") + "|manual_approval_wallet"
+                repo.touch_customer_order(order)
+                wallet_manual = True
+            else:
+                wallet_balance, credited = repo.credit_wallet_once_for_order(
+                    session,
+                    tg,
+                    price,
+                    order_id=oid,
+                    note=source,
+                )
+                order.status = "done"
+                order.completed_at = datetime.utcnow()
+                repo.touch_customer_order(order)
+                if not credited:
+                    # Already credited earlier — still notify as success/idempotent
+                    pass
         else:
             # Paid create/renew — auto-fulfill unless admin enabled manual approval.
             # Exception: when the admin already pressed Approve (bot/panel), always
@@ -531,11 +549,11 @@ async def _apply_paid_order(
                 log.exception("referral credit failed order=%s", oid)
                 referral_info = None
 
-    manual_needed = False
-    with get_session() as session:
-        manual_needed = bool(
-            kind != "wallet" and repo.is_orders_manual_approval(session) and not fulfill
-        )
+    manual_needed = bool(wallet_manual or (kind != "wallet" and not fulfill))
+    # Re-check live flag only for create/renew so toggling mid-flight still works.
+    if kind != "wallet" and not fulfill and not (source or "").startswith("admin_"):
+        with get_session() as session:
+            manual_needed = bool(repo.is_orders_manual_approval(session))
 
     if referral_info and referral_info.get("ok"):
         try:
@@ -555,14 +573,14 @@ async def _apply_paid_order(
         except Exception:
             log.exception("referral notify failed order=%s", oid)
 
-    if kind == "wallet":
+    if kind == "wallet" and not wallet_manual:
         try:
             from app.telegram.handlers.customer import notify_wallet_credited
 
             await notify_wallet_credited(tg, price, order_id=oid)
         except Exception:
             log.exception("wallet credit customer notify failed order=%s", oid)
-    else:
+    elif kind != "wallet":
         # Remove prior invoice / card / amount messages from the customer chat.
         try:
             from app.telegram.handlers.customer import cleanup_customer_order_ui
@@ -583,11 +601,17 @@ async def _apply_paid_order(
         )
         if customer_bridge.customer_bot:
             try:
-                await customer_bridge.customer_bot.send_message(
-                    tg,
-                    f"✅ پرداخت ثبت شد و برای تایید ادمین ارسال شد.\n"
-                    f"سفارش #{oid} — سرویس <code>{uname}</code>",
-                )
+                if kind == "wallet":
+                    notice = (
+                        f"✅ پرداخت شارژ کیف پول ثبت شد و برای تایید ادمین ارسال شد.\n"
+                        f"سفارش #{oid}"
+                    )
+                else:
+                    notice = (
+                        f"✅ پرداخت ثبت شد و برای تایید ادمین ارسال شد.\n"
+                        f"سفارش #{oid} — سرویس <code>{uname}</code>"
+                    )
+                await customer_bridge.customer_bot.send_message(tg, notice)
             except Exception:
                 log.exception("manual-approval customer notice failed order=%s", oid)
     else:

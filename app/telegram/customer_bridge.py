@@ -29,7 +29,7 @@ async def notify_admins_action_required(
     *,
     reply_markup: InlineKeyboardMarkup | None = None,
 ) -> list[Any]:
-    """Ping every admin that something needs their reaction."""
+    """Ping every admin that something needs their reaction (always a new message)."""
     bot = admin_bot
     if not bot:
         return []
@@ -43,6 +43,20 @@ async def notify_admins_action_required(
         except Exception:
             log.exception("admin action notify failed admin=%s", admin_id)
     return sent
+
+
+async def ping_admins(
+    text: str,
+    *,
+    reply_markup: InlineKeyboardMarkup | None = None,
+) -> list[Any]:
+    """Loud new-message ping to every configured admin id."""
+    from app.config import load_settings
+
+    settings = load_settings(require_bot=False)
+    return await notify_admins_action_required(
+        settings.admin_ids, text, reply_markup=reply_markup
+    )
 
 
 def set_bot_loop(loop: asyncio.AbstractEventLoop | None) -> None:

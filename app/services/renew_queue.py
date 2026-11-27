@@ -467,8 +467,11 @@ class RenewQueue:
                         oid_fail = None
             await self._replace_payment_ui(
                 job_id,
-                f"⏰ مهلت پرداخت تمام شد\n{kind_fa} <code>{username}</code>\n"
-                f"مبلغ: {amount} ریال\nفاکتور منقضی؛ دوباره تلاش کنید.",
+                f"🚨 <b>مهلت پرداخت فروشنده تمام شد</b>\n"
+                f"{kind_fa} <code>{username}</code>\n"
+                f"مبلغ: <code>{amount}</code> ریال\n"
+                f"سفارش مشتری: #{oid_fail or '—'}\n"
+                "فاکتور منقضی شد — دوباره تلاش کنید یا انجام دستی بزنید.",
                 fail_keyboard(job_id),
             )
             if oid_fail:
@@ -661,14 +664,23 @@ class RenewQueue:
                         cust_order.note = (cust_order.note or "") + f"|vendor_fail:{err[:80]}"
                         repo.touch_customer_order(cust_order)
                         oid_fail = cust_order.id
-            await self._upsert_job_notice(
+            fail_text = (
+                f"🚨 <b>{kind_fa} ناموفق</b>\n"
+                f"سرویس: <code>{username}</code>\n"
+                f"صف: #{job_id}\n"
+                f"سفارش مشتری: #{oid_fail or '—'}\n"
+                f"علت: <code>{err}</code>\n"
+                "نیاز به واکنش ادمین."
+            )
+            await self._replace_payment_ui(
                 job_id,
-                f"❌ {kind_fa} ناموفق\n<code>{username}</code>\n{err}",
+                fail_text,
                 fail_keyboard(job_id),
             )
             if oid_fail:
                 from app.services.customer_fulfill import notify_fulfillment_failed
 
+                # Second loud ping with retry buttons + order context.
                 await notify_fulfillment_failed(oid_fail, str(err))
             self._arm_queue_gap()
             self.wake()
@@ -692,10 +704,15 @@ class RenewQueue:
                 repo.fail_renew_job(
                     job, f"stale_payment_message:{pay.message_id}"
                 )
-                await self._upsert_job_notice(
+                stale_text = (
+                    f"🚨 <b>{kind_fa} ناموفق</b>\n"
+                    f"سرویس: <code>{username}</code>\n"
+                    f"صف: #{job_id}\n"
+                    "پرداخت قدیمی فروشنده دوباره استفاده شد؛ دوباره تلاش کنید."
+                )
+                await self._replace_payment_ui(
                     job_id,
-                    f"❌ {kind_fa} ناموفق\n<code>{username}</code>\n"
-                    "پرداخت قدیمی فروشنده دوباره استفاده شد؛ دوباره تمدید را بزنید.",
+                    stale_text,
                     fail_keyboard(job_id),
                 )
                 self._arm_queue_gap()
@@ -1008,15 +1025,28 @@ class RenewQueue:
                     job.subscription_id = sub.id
                     repo.touch_renew_job(job)
 
-        # Always push a clear admin success notice (no subscription link in admin bot).
-        await self._replace_payment_ui(
-            job_id,
-            f"🎉 <b>{kind_fa} موفق</b>\n"
+        # Always push a clear admin success notice (fresh message = Telegram ping).
+        success_text = (
+            f"🎉 <b>{kind_fa} موفق شد</b>\n"
             f"سرویس: <code>{uname}</code>\n"
             f"مبلغ: <code>{amt or '—'}</code> ریال\n"
-            "عملیات فروشنده تمام شد — موجودی ادمین به‌روز شد.",
+            f"سفارش مشتری: #{cust_order_id or '—'}\n"
+            f"صف: #{job_id}\n"
+            "عملیات فروشنده تمام شد — موجودی به‌روز شد."
+        )
+        await self._replace_payment_ui(
+            job_id,
+            success_text,
             success_keyboard(uname, sub_pk),
         )
+        # Extra short ping so the chat list unread badge moves even if replace reused chat.
+        try:
+            await customer_bridge.ping_admins(
+                f"✅ {kind_fa} OK — <code>{uname}</code> · صف #{job_id}",
+                reply_markup=success_keyboard(uname, sub_pk),
+            )
+        except Exception:
+            log.exception("success admin ping failed job=%s", job_id)
 
         if cust_tg and customer_bridge.customer_bot:
             try:
