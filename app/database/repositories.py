@@ -3620,7 +3620,8 @@ def merge_username_case_duplicates(
             keep.vendor_service_id = other.vendor_service_id
         if not keep.product_name and other.product_name:
             keep.product_name = other.product_name
-        # Retarget ownership links.
+        keep_link = get_link_for_subscription(session, keep.id)
+        # Retarget / collapse ownership links without violating unique subscription_id.
         for link in list(
             session.scalars(
                 select(CustomerServiceLink).where(
@@ -3632,10 +3633,20 @@ def merge_username_case_duplicates(
                 )
             )
         ):
+            if keep_link is not None and link.id == keep_link.id:
+                link.service_username = canon
+                if keep.vendor_id:
+                    link.vendor_id = keep.vendor_id
+                continue
+            if keep_link is not None and link.id != keep_link.id:
+                # Prefer the keep owner; drop the duplicate link row.
+                session.delete(link)
+                continue
             link.subscription_id = keep.id
             link.service_username = canon
             if keep.vendor_id:
                 link.vendor_id = keep.vendor_id
+            keep_link = link
         for order in list(
             session.scalars(
                 select(CustomerOrder).where(
@@ -3647,6 +3658,7 @@ def merge_username_case_duplicates(
         # Soft-remove the duplicate shell so it no longer appears in inventory.
         other.status = "removed"
         other.username = f"{other.username}__dup{other.id}"
+        session.flush()
     session.flush()
     return keep
 
