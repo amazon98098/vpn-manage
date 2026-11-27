@@ -2916,7 +2916,7 @@ async def _wallet_home_ui(
     kb_rows.append(
         [
             InlineKeyboardButton(
-                text="➕ افزایش موجودی",
+                text="💰 کیف پول (افزایش موجودی)",
                 callback_data="cust:wallet:charge",
             )
         ]

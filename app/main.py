@@ -224,7 +224,10 @@ async def run() -> None:
                         command="services",
                         description="🛍 سرویس های من | تمدید",
                     ),
-                    BotCommand(command="wallet", description="💰 افزایش موجودی"),
+                    BotCommand(
+                        command="wallet",
+                        description="💰 کیف پول (افزایش موجودی)",
+                    ),
                     BotCommand(
                         command="help",
                         description="📚 راهنمای اتصال",
