@@ -180,7 +180,6 @@ DEFAULT_ADMIN_LAYOUT: list[list[str]] = [
     ["create", "queue"],
     ["requests", "settings"],
     ["sync", "ownership"],
-    ["help"],
 ]
 
 # ─── Admin inline inner menus (labels only; callbacks fixed) ───────────────────
@@ -373,6 +372,9 @@ def _load_layout(state_key: str, default: list[list[str]]) -> list[list[str]]:
         return [list(row) for row in default]
     out: list[list[str]] = []
     skip = {"hide_menu", "show_menu"} if state_key == STATE_CUSTOMER_LAYOUT else set()
+    # Help removed from admin bot; drop it from any saved layout too.
+    if state_key == STATE_ADMIN_LAYOUT:
+        skip = set(skip) | {"help"}
     for row in data:
         if isinstance(row, list) and row:
             cleaned = [

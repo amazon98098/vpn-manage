@@ -85,7 +85,6 @@ def main_menu() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="📥 درخواست‌ها", callback_data="menu:requests")],
             [InlineKeyboardButton(text="📋 صف سفارش‌ها", callback_data="renew:queue")],
             [InlineKeyboardButton(text="⚙️ تنظیمات", callback_data="menu:settings")],
-            [InlineKeyboardButton(text="ℹ️ راهنما", callback_data="menu:help")],
         ]
     )
 

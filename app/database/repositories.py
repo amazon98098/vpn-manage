@@ -34,9 +34,13 @@ DEFAULT_PRICE_PLANS = (
     ("1m_25gb", "۲۵ گیگ یکماهه", 31, 25.0, 150000, 0),
     ("1m_55gb", "۵۵ گیگ یکماهه", 31, 55.0, 180000, 0),
     ("1m_100gb", "۱۰۰ گیگ یکماهه", 31, 100.0, 250000, 0),
+    ("3m_230gb", "۲۳۰ گیگ سه‌ماهه", 91, 230.0, 0, 0),
+    ("3m_400gb", "۴۰۰ گیگ سه‌ماهه", 91, 400.0, 0, 0),
     ("fa_50gb", "۵۰ گیگ نامحدود زمانی", 0, 50.0, 460000, 360000),
     ("fa_100gb", "۱۰۰ گیگ نامحدود زمانی", 0, 100.0, 820000, 696000),
 )
+# Present in catalog but stay off until admin enables them.
+SEED_DISABLED_PLAN_KEYS = frozenset({"3m_230gb", "3m_400gb"})
 
 ACTIVE_RENEW_STATUSES = (
     "queued",
@@ -1156,7 +1160,7 @@ def ensure_default_price_plans(session: Session) -> None:
                     traffic_gb=gb,
                     price_toman=price,
                     vendor_cost_toman=cost or None,
-                    enabled=True,
+                    enabled=key not in SEED_DISABLED_PLAN_KEYS,
                     sort_order=i,
                 )
             )
@@ -1170,12 +1174,17 @@ def ensure_default_price_plans(session: Session) -> None:
             if cost and not plan.vendor_cost_toman:
                 plan.vendor_cost_toman = cost
             plan.sort_order = i
-            plan.enabled = True
             # Always refresh FineArts list prices from catalog (new sell rates).
             if key.startswith("fa_"):
                 plan.price_toman = price
                 plan.vendor_cost_toman = cost or None
-    # Disable anything not in the sell catalog (2m/3m/legacy)
+                plan.enabled = True
+            elif key in SEED_DISABLED_PLAN_KEYS:
+                # Keep admin on/off; do not force-enable optional 3m plans.
+                pass
+            else:
+                plan.enabled = True
+    # Disable anything not in the sell catalog (legacy leftovers)
     for plan in session.scalars(select(PricePlan)).all():
         if plan.key not in wanted_keys:
             plan.enabled = False
@@ -3183,14 +3192,25 @@ def search_customer_profiles_page(
 ) -> tuple[list[CustomerProfile], int]:
     filters = []
     raw = (query or "").strip().lstrip("@")
+    # Allow "123 | Name" style queries from the friends/colleagues picker.
+    if "|" in raw:
+        left, _, right = raw.partition("|")
+        left, right = left.strip(), right.strip()
+        raw = left if left.isdigit() else (right or left)
     if raw:
         like = f"%{raw}%"
         clauses = [
             CustomerProfile.username.ilike(like),
             CustomerProfile.full_name.ilike(like),
         ]
+        digits = "".join(ch for ch in raw if ch.isdigit())
         if raw.isdigit():
             clauses.append(CustomerProfile.telegram_id == int(raw))
+        elif digits and len(digits) >= 5:
+            try:
+                clauses.append(CustomerProfile.telegram_id == int(digits))
+            except ValueError:
+                pass
         filters.append(or_(*clauses))
     count_q = select(func.count()).select_from(CustomerProfile)
     list_q = select(CustomerProfile)

@@ -35,6 +35,7 @@ from app.telegram.ui_helpers import (
 from app.services.subscription_refresh import refresh_subscription_userinfo
 from app.utils.subscription_qr import subscription_qr_png
 from app.utils.text import (
+    duration_months_label,
     format_expire_display,
     format_jalali_date,
     format_mb,
@@ -1105,10 +1106,15 @@ async def cust_back(callback: CallbackQuery) -> None:
             draft["step"] = "panel"
             _set_draft(uid, draft)
             await _buy_start_ui(callback.message, edit=True)
+        elif len(_enabled_duration_days(panel)) <= 1:
+            # Duration step was skipped — go back to panel picker.
+            draft["step"] = "panel"
+            _set_draft(uid, draft)
+            await _buy_start_ui(callback.message, edit=True)
         else:
             draft["step"] = "duration"
             _set_draft(uid, draft)
-            await _show_durations(callback.message, panel, edit=True)
+            await _show_durations(callback.message, panel, edit=True, uid=uid)
         return
     if step == "username":
         draft["step"] = "volume"
@@ -1186,16 +1192,36 @@ def _plans_for_panel(plans: list, panel_key: str) -> list:
     return out
 
 
-async def _show_durations(
-    message: Message, panel_key: str, *, edit: bool = False
-) -> None:
+def _enabled_duration_days(panel_key: str) -> list[int]:
     with get_session() as session:
         plans = _plans_for_panel(
             repo.list_price_plans(session, enabled_only=True), panel_key
         )
-    days_list = sorted(
+    return sorted(
         {int(p.duration_days) for p in plans if p.duration_days is not None}
     )
+
+
+def _volume_plan_label(
+    *, icon: str, traffic_gb: float | int | None, duration_days: int, price: int, title: str
+) -> str:
+    gb = int(traffic_gb) if traffic_gb else 0
+    if not gb:
+        return f"{icon} {title}"
+    if int(duration_days) == 0:
+        return f"{icon} {gb} گیگ نامحدود زمانی — {price:,} ت"
+    dur = duration_months_label(int(duration_days))
+    return f"{icon} {gb} گیگ {dur} — {price:,} ت"
+
+
+async def _show_durations(
+    message: Message,
+    panel_key: str,
+    *,
+    edit: bool = False,
+    uid: int | None = None,
+) -> None:
+    days_list = _enabled_duration_days(panel_key)
     if not days_list:
         await _ui_show(
             message,
@@ -1203,6 +1229,18 @@ async def _show_durations(
             reply_markup=customer_menu(),
             edit=edit,
         )
+        return
+    # Only one active duration → skip the duration step and show volumes.
+    if len(days_list) == 1:
+        owner = uid or (message.from_user.id if message.from_user else 0)
+        draft = {
+            "step": "volume",
+            "panel": panel_key,
+            "duration_days": days_list[0],
+        }
+        if owner:
+            _set_draft(owner, draft)
+        await _show_volumes(message, draft, edit=edit)
         return
     rows = [
         [
@@ -1242,7 +1280,7 @@ async def buy_panel(callback: CallbackQuery) -> None:
     else:
         draft = {"step": "duration", "panel": panel}
         _set_draft(uid, draft)
-        await _show_durations(callback.message, panel, edit=True)
+        await _show_durations(callback.message, panel, edit=True, uid=uid)
     await callback.answer()
 
 
@@ -1273,12 +1311,13 @@ async def _show_volumes(message: Message, draft: dict, *, edit: bool = False) ->
             if int(p.duration_days) == days
         ]
         for plan in plans:
-            gb = int(plan.traffic_gb) if plan.traffic_gb else 0
             price = _price_for_uid(session, plan, uid)
-            label = (
-                f"{icon} {gb} گیگ — {price:,} ت"
-                if gb
-                else f"{icon} {plan.title}"
+            label = _volume_plan_label(
+                icon=icon,
+                traffic_gb=plan.traffic_gb,
+                duration_days=days,
+                price=price,
+                title=plan.title,
             )
             rows.append(
                 [
@@ -2665,12 +2704,13 @@ async def _show_renew_volumes(
             if int(p.duration_days) == days
         ]
         for plan in plans:
-            gb = int(plan.traffic_gb) if plan.traffic_gb else 0
             price = _price_for_uid(session, plan, uid)
-            label = (
-                f"{icon} {gb} گیگ — {price:,} ت"
-                if gb
-                else f"{icon} {plan.title}"
+            label = _volume_plan_label(
+                icon=icon,
+                traffic_gb=plan.traffic_gb,
+                duration_days=days,
+                price=price,
+                title=plan.title,
             )
             rows.append(
                 [
@@ -2791,14 +2831,6 @@ async def renew_panel(callback: CallbackQuery) -> None:
         _set_draft(uid, draft)
         await _show_renew_volumes(callback.message, draft, edit=True)
     else:
-        draft = {
-            "step": "renew_choice",
-            "panel": panel,
-            "username": username,
-            "kind": "renew",
-            "plan_mode": "change",
-        }
-        _set_draft(uid, draft)
         with get_session() as session:
             plans = _plans_for_panel(
                 _plans_for_service_vendor(
@@ -2815,31 +2847,52 @@ async def renew_panel(callback: CallbackQuery) -> None:
                     if p.duration_days is not None
                 }
             )
-        rows: list[list[InlineKeyboardButton]] = []
         u = username[:40]
-        for days in days_list:
+        # Only one enabled duration → skip straight to volume list.
+        if len(days_list) == 1:
+            draft = {
+                "step": "renew_volume",
+                "panel": panel,
+                "duration_days": days_list[0],
+                "username": username,
+                "kind": "renew",
+                "plan_mode": "change",
+            }
+            _set_draft(uid, draft)
+            await _show_renew_volumes(callback.message, draft, edit=True)
+        else:
+            draft = {
+                "step": "renew_choice",
+                "panel": panel,
+                "username": username,
+                "kind": "renew",
+                "plan_mode": "change",
+            }
+            _set_draft(uid, draft)
+            rows: list[list[InlineKeyboardButton]] = []
+            for days in days_list:
+                rows.append(
+                    [
+                        InlineKeyboardButton(
+                            text=_DURATION_LABELS.get(days, f"{days} روز"),
+                            callback_data=f"cust:renew:dur:{days}:{u}",
+                        )
+                    ]
+                )
             rows.append(
                 [
                     InlineKeyboardButton(
-                        text=_DURATION_LABELS.get(days, f"{days} روز"),
-                        callback_data=f"cust:renew:dur:{days}:{u}",
+                        text="⬅️ بازگشت",
+                        callback_data=f"cust:svcrenew:{u}",
                     )
                 ]
             )
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text="⬅️ بازگشت",
-                    callback_data=f"cust:svcrenew:{u}",
-                )
-            ]
-        )
-        await _ui_show(
-            callback.message,
-            f"⏱ مدت تمدید را انتخاب کنید:\nپلن: <b>{_panel_title(panel)}</b>",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
-            edit=True,
-        )
+            await _ui_show(
+                callback.message,
+                f"⏱ مدت تمدید را انتخاب کنید:\nپلن: <b>{_panel_title(panel)}</b>",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+                edit=True,
+            )
     await callback.answer()
 
 

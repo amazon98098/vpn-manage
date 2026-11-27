@@ -19,12 +19,13 @@ PAGE_SIZE = 8
 
 
 def _profile_label(p) -> str:
-    """Show telegram id, and username from DB when we have it."""
+    """Show telegram id | display name for picker + search."""
     tid = p.telegram_id
-    if p.username:
-        return f"{tid} · @{p.username}"
-    if p.full_name:
-        return f"{tid} · {p.full_name}"
+    name = (p.full_name or "").strip() or (
+        f"@{p.username}" if p.username else ""
+    )
+    if name:
+        return f"{tid} | {name}"
     return f"{tid}"
 
 
@@ -216,7 +217,7 @@ async def cb_rates_search(callback: CallbackQuery, settings: Settings) -> None:
     with get_session() as session:
         repo.set_state(session, f"admin_flow:{uid}", f"rates_search:{tier}")
     await callback.message.answer(
-        "عبارت جستجو را بفرستید (نام، @یوزرنیم، یا شناسه عددی).\n"
+        "عبارت جستجو را بفرستید (نام یا شناسه عددی — مثل <code>123 | علی</code>).\n"
         "برای انصراف: <code>-</code>"
     )
     await callback.answer()

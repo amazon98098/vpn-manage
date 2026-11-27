@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ t('rates_title') }} · FX One{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div>
+    <h1>{{ t('rates_title') }}</h1>
+    <p>{{ t('rates_lead') }}</p>
+  </div>
+</div>
+{% if flash %}<div class="flash">{{ t('updated') }}</div>{% endif %}
+<section class="panel">
+  <div class="toolbar tools-bar">
+    <a class="btn {% if tier == 'friends' %}{% else %}ghost{% endif %} small" href="/rates?tier=friends&q={{ q }}">{{ t('rates_tab_friends') }}</a>
+    <a class="btn {% if tier == 'colleagues' %}{% else %}ghost{% endif %} small" href="/rates?tier=colleagues&q={{ q }}">{{ t('rates_tab_colleagues') }}</a>
+    <span class="muted">{{ members_count }} · {{ t('profiles_page', total=total, page=page + 1, pages=pages) }}</span>
+  </div>
+  <div class="toolbar">
+    <form method="get" action="/rates" data-live-search data-live-target="#rates-live">
+      <input type="hidden" name="tier" value="{{ tier }}" />
+      <input type="hidden" name="members" value="{{ 1 if members_only else 0 }}" />
+      <input name="q" value="{{ q }}" placeholder="{{ t('rates_search') }}" autocomplete="off" />
+    </form>
+    <a class="btn ghost small" href="/rates?tier={{ tier }}&members={% if members_only %}0{% else %}1{% endif %}&q={{ q }}">
+      {% if members_only %}{{ t('rates_search') }}{% else %}{{ t('rates_members_only') }}{% endif %}
+    </a>
+  </div>
+  <div id="rates-live">
+    {% include "rates_table.html" %}
+  </div>
+</section>
+{% endblock %}

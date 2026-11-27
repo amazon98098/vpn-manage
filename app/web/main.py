@@ -1155,7 +1155,22 @@ def create_app() -> FastAPI:
             items = []
             for p in rows:
                 links = repo.list_customer_services(session, p.telegram_id)
-                items.append({"profile": p, "services": len(links)})
+                display_name = (p.full_name or "").strip() or (
+                    f"@{p.username}" if p.username else "—"
+                )
+                id_name = (
+                    f"{p.telegram_id} | {display_name}"
+                    if display_name != "—"
+                    else str(p.telegram_id)
+                )
+                items.append(
+                    {
+                        "profile": p,
+                        "services": len(links),
+                        "display_name": display_name,
+                        "id_name": id_name,
+                    }
+                )
         data = _ctx(
             request,
             "customers",
@@ -1182,6 +1197,19 @@ def create_app() -> FastAPI:
             links = repo.list_customer_services(session, tg_id)
             ledger = repo.list_wallet_ledger(session, tg_id, limit=30)
             orders = repo.list_customer_orders_for_user(session, tg_id, limit=20)
+            rate_tier = repo.get_customer_rate_tier(session, tg_id)
+        display_name = (profile.full_name or "").strip() or (
+            f"@{profile.username}" if profile.username else "Customer"
+        )
+        id_name = f"{profile.telegram_id} | {display_name}"
+        tier_keys = {
+            "default": "rate_tier_default",
+            "friends": "rate_tier_friends",
+            "colleagues": "rate_tier_colleagues",
+        }
+        rate_tier_label = translate(
+            _lang(request), tier_keys.get(rate_tier, "rate_tier_default")
+        )
         return TEMPLATES.TemplateResponse(
             request,
             "customer_detail.html",
@@ -1192,8 +1220,102 @@ def create_app() -> FastAPI:
                 links=links,
                 ledger=ledger,
                 orders=orders,
+                id_name=id_name,
+                rate_tier=rate_tier,
+                rate_tier_label=rate_tier_label,
                 flash=request.query_params.get("ok"),
             ),
+        )
+
+    @app.post("/customers/{tg_id}/rate-tier")
+    async def customer_rate_tier_set(
+        tg_id: int,
+        tier: str = Form("default"),
+        _auth: None = Depends(_require_auth),
+    ):
+        with get_session() as session:
+            if not repo.get_customer_profile(session, tg_id):
+                raise HTTPException(404)
+            repo.set_customer_rate_tier(session, tg_id, tier)
+        return RedirectResponse(f"/customers/{tg_id}?ok=1", status_code=303)
+
+    @app.get("/rates", response_class=HTMLResponse)
+    async def rates_page(
+        request: Request,
+        tier: str = "friends",
+        q: str = "",
+        page: int = 0,
+        members: int = 0,
+        partial: int = 0,
+        _auth: None = Depends(_require_auth),
+    ):
+        tier = "colleagues" if tier == "colleagues" else "friends"
+        page = max(0, page)
+        page_size = 40
+        members_only = bool(members)
+        with get_session() as session:
+            member_rows = repo.list_customers_by_rate_tier(session, tier)
+            member_ids = {int(p.telegram_id) for p in member_rows}
+            if members_only and not q.strip():
+                total = len(member_rows)
+                slice_rows = member_rows[page * page_size : (page + 1) * page_size]
+            else:
+                slice_rows, total = repo.search_customer_profiles_page(
+                    session, query=q, page=page, page_size=page_size
+                )
+                if members_only:
+                    slice_rows = [p for p in slice_rows if int(p.telegram_id) in member_ids]
+                    total = len(member_ids) if not q.strip() else len(slice_rows)
+            items = []
+            for p in slice_rows:
+                display = (p.full_name or "").strip() or (
+                    f"@{p.username}" if p.username else ""
+                )
+                label = (
+                    f"{p.telegram_id} | {display}" if display else str(p.telegram_id)
+                )
+                items.append(
+                    {
+                        "telegram_id": p.telegram_id,
+                        "label": label,
+                        "in_list": int(p.telegram_id) in member_ids,
+                    }
+                )
+        data = _ctx(
+            request,
+            "rates",
+            items=items,
+            tier=tier,
+            q=q,
+            page=page,
+            pages=max(1, ((int(total or 0)) + page_size - 1) // page_size),
+            total=int(total or 0),
+            members_only=members_only,
+            members_count=len(member_ids),
+            flash=request.query_params.get("ok"),
+        )
+        tpl = "rates_table.html" if partial else "rates.html"
+        return TEMPLATES.TemplateResponse(request, tpl, data)
+
+    @app.post("/rates/toggle")
+    async def rates_toggle(
+        tier: str = Form("friends"),
+        tg_id: int = Form(...),
+        q: str = Form(""),
+        page: int = Form(0),
+        members: int = Form(0),
+        _auth: None = Depends(_require_auth),
+    ):
+        tier = "colleagues" if tier == "colleagues" else "friends"
+        with get_session() as session:
+            cur = repo.get_customer_rate_tier(session, tg_id)
+            if cur == tier:
+                repo.set_customer_rate_tier(session, tg_id, "default")
+            else:
+                repo.set_customer_rate_tier(session, tg_id, tier)
+        return RedirectResponse(
+            f"/rates?tier={tier}&q={q}&page={page}&members={members}&ok=1",
+            status_code=303,
         )
 
     @app.post("/customers/{tg_id}/wallet")

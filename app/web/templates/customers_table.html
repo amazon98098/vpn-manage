@@ -3,7 +3,7 @@
   <thead>
     <tr>
       <th><input type="checkbox" data-select-all title="Select page" /></th>
-      <th data-col="telegram"><a class="sort" href="/customers?q={{ q }}&sort=telegram&direction={% if sort == 'telegram' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('telegram') }}{% if sort == 'telegram' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+      <th data-col="telegram"><a class="sort" href="/customers?q={{ q }}&sort=telegram&direction={% if sort == 'telegram' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('customer_id_name') }}{% if sort == 'telegram' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
       <th data-col="name"><a class="sort" href="/customers?q={{ q }}&sort=name&direction={% if sort == 'name' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('name') }}{% if sort == 'name' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
       <th data-col="wallet"><a class="sort" href="/customers?q={{ q }}&sort=wallet&direction={% if sort == 'wallet' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('wallet') }}{% if sort == 'wallet' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
       <th data-col="services"><a class="sort" href="/customers?q={{ q }}&sort=services&direction={% if sort == 'services' and direction == 'asc' %}desc{% else %}asc{% endif %}&page={{ page }}">{{ t('nav_services') }}{% if sort == 'services' %} {% if direction == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
@@ -16,10 +16,10 @@
     <tr>
       <td><input class="row-pick" type="checkbox" value="{{ it.profile.telegram_id }}" /></td>
       <td class="mono" data-col="telegram">
-        <button type="button" class="copy-cell" data-copy="{{ it.profile.telegram_id }}" title="{{ t('copy_id') }}">{{ it.profile.telegram_id }}</button>
+        <button type="button" class="copy-cell" data-copy="{{ it.profile.telegram_id }}" title="{{ t('copy_id') }}">{{ it.id_name }}</button>
         <a class="btn ghost small" href="/customers/{{ it.profile.telegram_id }}">↗</a>
       </td>
-      <td data-col="name">{{ it.profile.full_name or it.profile.username or '—' }}</td>
+      <td data-col="name">{{ it.display_name }}</td>
       <td class="mono num-cell" data-col="wallet">{{ (it.profile.wallet_toman or 0) | toman }}</td>
       <td class="mono" data-col="services">{{ it.services }}</td>
       <td class="mono muted" data-col="created">{% if it.profile.created_at %}{{ it.profile.created_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>

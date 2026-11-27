@@ -3,8 +3,8 @@
 {% block body %}
 <div class="topbar">
   <div>
-    <h1 class="mono">👤 <button type="button" class="copy-cell" data-copy="{{ profile.telegram_id }}" title="{{ t('copy_id') }}">{{ profile.telegram_id }}</button></h1>
-    <p>{{ profile.full_name or profile.username or 'Customer' }} · 💰 {{ t('wallet') }} {{ (profile.wallet_toman or 0) | toman }} تومان{% if profile.created_at %} · {{ t('col_created') }} {{ profile.created_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}</p>
+    <h1 class="mono">👤 <button type="button" class="copy-cell" data-copy="{{ profile.telegram_id }}" title="{{ t('copy_id') }}">{{ id_name }}</button></h1>
+    <p>💰 {{ t('wallet') }} {{ (profile.wallet_toman or 0) | toman }} تومان · {{ t('rate_tier') }} {{ rate_tier_label }}{% if profile.created_at %} · {{ t('col_created') }} {{ profile.created_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}</p>
   </div>
   <div class="top-actions">
     <form method="post" action="/customers/{{ profile.telegram_id }}/delete" onsubmit="return confirm({{ t('delete_customer_confirm')|tojson }});">
@@ -41,6 +41,17 @@
     <form class="form-stack" method="post" action="/customers/{{ profile.telegram_id }}/wallet">
       <label>{{ t('amount_toman') }}<input type="number" name="amount" required /></label>
       <label>{{ t('note') }}<input name="note" value="web_adjust" /></label>
+      <button class="btn" type="submit">{{ t('apply') }}</button>
+    </form>
+    <div class="toolbar" style="margin-top:1rem"><strong>{{ t('rate_tier') }}</strong></div>
+    <form class="form-stack" method="post" action="/customers/{{ profile.telegram_id }}/rate-tier">
+      <label>{{ t('rate_tier') }}
+        <select name="tier">
+          <option value="default" {% if rate_tier == 'default' %}selected{% endif %}>{{ t('rate_tier_default') }}</option>
+          <option value="friends" {% if rate_tier == 'friends' %}selected{% endif %}>{{ t('rate_tier_friends') }}</option>
+          <option value="colleagues" {% if rate_tier == 'colleagues' %}selected{% endif %}>{{ t('rate_tier_colleagues') }}</option>
+        </select>
+      </label>
       <button class="btn" type="submit">{{ t('apply') }}</button>
     </form>
   </section>
